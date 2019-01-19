@@ -1,0 +1,63 @@
+<Frame title="$SplitterWindow">
+    <SplitterWindow>
+        <Panel Name="top">
+            <BoxSizer Expand="" orient="VERTICAL" Border="ALL, 5" Proportion="1">
+                <wx.dataview.TreeListCtrl>
+                    <Config>
+                        <AppendColumn title="Test" />
+                        <AppendColumn title="Duration" />
+                        <AppendColumn title="Pass" />
+                        <AppendColumn title="Fail" />
+                        <AppendColumn title="Error" />
+                    </Config>
+                </wx.dataview.TreeListCtrl>
+            </BoxSizer>
+        </Panel>
+        <Panel Name="bottom">
+            <BoxSizer Expand="" orient="VERTICAL" Border="ALL, 5" Proportion="1">
+                <Notebook>
+                    <ListCtrl style="LC_REPORT" Name="messages" />
+                    <Config>
+                        <AddPage page="{messages}" text="Messages" />
+                    </Config>
+                </Notebook>
+            </BoxSizer>
+        </Panel>
+
+        <Config>
+            <SplitHorizontally window1="{top}" window2="{bottom}" />
+            <SashGravity value="0.5" />
+            <SashPosition value="50" />
+        </Config>
+    </SplitterWindow>
+
+    <MenuBar>
+        <Menu Name="File">
+            <OptionA Label="OptionA" />
+            <Menu Name="Nested">
+                <Nested1 />
+                <Nested2 />
+            </Menu>
+            <___ />
+            <Quit id='exit' help='Quits the application' />
+        </Menu>
+
+        <Menu Name="About">
+            <Help />
+            <Information />
+            <Update Label="Check for updates" />
+        </Menu>
+<!--
+        <Config>
+            <Append menu="{file}" title="File" />
+            <Append menu="{about}" title="About" />
+        </Config> -->
+    </MenuBar>
+
+    <Config>
+        <SetInitialSize size="(400, 400)" />
+        <CreateStatusBar style="~STB_SIZEGRIP + STB_DEFAULT_STYLE" Name="status">
+            <SetStatusText text="Statusbar created" i="0" />
+        </CreateStatusBar>
+    </Config>
+</Frame>

@@ -1,0 +1,22 @@
+<Frame>
+    <Panel>
+        <BoxSizer orient="VERTICAL" Expand="">
+            <Component Name="Container" Parent="StaticBox">
+                <GridSizer cols="2" vgap="3" hgap="3" Border="ALL, 5" Expand="" />
+            </Component>
+
+            <Container label="Buttons">
+                <Button label="Hello world"/>
+                <Button label="Button #2" />
+                <Button label="Button #3" />
+                <Button label="Hello world 2"/>
+                <Button label="Button #5" />
+                <Button label="Button2" />
+            </Container>
+
+            <Container label="Choices">
+                <Choice />
+            </Container>
+        </BoxSizer>
+    </Panel>
+</Frame>

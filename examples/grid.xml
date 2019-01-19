@@ -1,0 +1,41 @@
+<Frame>
+    <Panel>
+        <BoxSizer orient="VERTICAL" Expand="" Border="ALL, 5" />
+
+        <StaticText label="Test" />
+        <Button label="{message}">
+            <EventBindings>
+                <EVT_BUTTON handler="pushed" />
+            </EventBindings>
+        </Button>
+        <TextCtrl value="(text:EVT_TEXT[str.lower])"  />
+        <StaticText label="(text)" />
+        <StaticText label="(text[str.upper])" />
+        <StaticText label="(text[str.title])" />
+        <StaticText label="(text[str.lower])" />
+        <TextCtrl>
+            <Config>
+                <Value Bind="(one_way:EVT_TEXT)" />
+            </Config>
+        </TextCtrl>
+        <StaticText label="(one_way)" />
+
+        <Choice>
+            <Config>
+                <Items value="(text[str.split])" />
+                <Selection value="0" />
+            </Config>
+        </Choice>
+
+        <Gauge range="500">
+            <Config>
+                <Value value="(text[len])" />
+            </Config>
+        </Gauge>
+    </Panel>
+
+    <Config>
+        <SetInitialSize size="500, 500" />
+        <Title value="Binding Fun" />
+    </Config>
+</Frame>

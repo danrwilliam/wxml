@@ -1,0 +1,33 @@
+<Frame>
+    <Namespace>
+        <Component Name="LabelChoice" Parent="Panel">
+            <BoxSizer Expand="" Align="CENTER" Border="ALL, 2">
+                <StaticText label="{:label}" />
+                <Choice Proportion="1" />
+            </BoxSizer>
+        </Component>
+
+        <Component Name="LabelTextCtrl">
+            <BoxSizer Expand="" Align="CENTER" Border="ALL, 2">
+                <StaticText label="{:label}" />
+                <TextCtrl value="{:default}" Proportion="1" />
+            </BoxSizer>
+        </Component>
+    </Namespace>
+
+    <Panel>
+        <BoxSizer orient="VERTICAL" Expand="">
+            <LabelTextCtrl label='First' default="Name1" />
+            <LabelTextCtrl label='Last' default="Name2" />
+            <LabelTextCtrl label='Email' default="email@example.com" />
+            <LabelTextCtrl label='Age' default="a number" />
+            <LabelChoice label='Level' />
+
+            <Button label="Submit" />
+        </BoxSizer>
+    </Panel>
+
+    <Config>
+        <Title value="Custom Component Example" />
+    </Config>
+</Frame>

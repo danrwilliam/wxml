@@ -1,0 +1,37 @@
+<Frame>
+    <SplitterWindow>
+        <wx.dataview.DataViewListCtrl style="DV_SINGLE" Name="error_list">
+            <Config>
+                <Loop over="{file_headers}">
+                    <AppendTextColumn label="{over}" />
+                </Loop>
+                <SelectedRow Bind="(selection:EVT_DATAVIEW_SELECTION_CHANGED)" />
+            </Config>
+        </wx.dataview.DataViewListCtrl>
+
+        <Panel Name="detail">
+            <BoxSizer Expand="" Border="ALL, 5" orient="VERTICAL">
+                <StaticText label="Exception Detail" />
+                <TextCtrl style="TE_MULTILINE | TE_AUTO_URL"
+                          value="(selection[get_message_detail])"
+                          Proportion="1">
+                    <Config>
+                        <SetFont font="Font(10, MODERN, NORMAL, NORMAL, False, 'Consolas')" />
+                    </Config>
+                </TextCtrl>
+                <StaticText label="(selection[row_select_str])" />
+            </BoxSizer>
+        </Panel>
+
+        <Config>
+            <SplitHorizontally window1="{error_list}" window2="{detail}" />
+            <SashGravity value="0" />
+            <SashPosition value="300" />
+        </Config>
+    </SplitterWindow>
+
+    <Config>
+        <Title value="wxml Construction Errors" />
+        <Size value="800, 600" />
+    </Config>
+</Frame>

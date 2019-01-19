@@ -1,0 +1,23 @@
+<Frame>
+    <Panel>
+        <FlexGridSizer cols="3" vgap="5" hgap="5" Expand="" Proportion="1" />
+
+        <Button label="Nine" />
+        <Button label="Eight" />
+        <Button label="Seven" />
+        <Button label="Six" />
+        <Button label="Five" />
+        <Button label="Four" />
+        <Button label="Three" />
+        <Button label="Two" />
+        <Button label="One" />
+        <StaticText />
+        <StaticText />
+        <Button label="Zero" />
+    </Panel>
+
+    <Config>
+        <Title value="FlexGridSizer Example" />
+        <Size value="300, 300" />
+    </Config>
+</Frame>

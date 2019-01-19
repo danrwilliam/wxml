@@ -1,0 +1,5 @@
+*.pyc
+extensions.json
+*store.json
+.vscode
+TODO
