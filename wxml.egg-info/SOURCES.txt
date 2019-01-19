@@ -1,9 +1,0 @@
-README.md
-wxml/__init__.py
-wxml/__main__.py
-wxml/builder.py
-wxml/error.py
-wxml.egg-info/PKG-INFO
-wxml.egg-info/SOURCES.txt
-wxml.egg-info/dependency_links.txt
-wxml.egg-info/top_level.txt
