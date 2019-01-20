@@ -6,5 +6,6 @@ setup(
     packages=['wxml'],
     install_requires=[
         'wxpython',
+        'watchdog'
     ]
 )
