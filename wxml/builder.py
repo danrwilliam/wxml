@@ -235,18 +235,34 @@ class UiBuilder(object):
             bound = nested_getattr(key, self.view_model, default=None)#  getattr(self.view_model, key, None)
             if bound is not None:
                 resolved = 'ViewModel'
+                if DEBUG_EVAL:
+                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, bound, bound.__class__.__name__))
                 return bound
 
             child = self.children.get(key)#nested_getattr(key, self.children)
             if child is not None:
-                resolved = 'View widget'
+                resolved = 'View_widget'
+                if DEBUG_EVAL:
+                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, child, child.__class__.__name__))
                 return child
 
+        # look first for something in the view model
         if not_a_class and bare_class:
-            bound = nested_getattr(value, self.view_model, None)
-            if bound is not None:
-                resolved = 'ViewModel (bare)'
-                return bound
+            retval = nested_getattr(value, self.view_model, None)
+            if retval is not None:
+                resolved = 'ViewModel_member'
+                if DEBUG_EVAL:
+                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, retval, retval.__class__.__name__))
+                return retval
+
+        # look for something in the imported Python modules
+        if not_a_class and bare_class:
+            retval = nested_getattr(value, default=None)
+            if retval is not None:
+                resolved = 'ModuleMember'
+                if DEBUG_EVAL:
+                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, retval, retval.__class__.__name__))
+                return retval
 
         if not_a_class and bare_class and hasattr(self, 'overrides'):
             t, *k = value.split('.')
@@ -256,6 +272,9 @@ class UiBuilder(object):
                     obj = nested_getattr('.'.join(k), obj)
 
                 if obj is not None:
+                    resolved = 'Override'
+                    if DEBUG_EVAL:
+                        print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, obj, obj.__class__.__name__))
                     return obj
 
         if not_a_class and wx_hasattr(value):
