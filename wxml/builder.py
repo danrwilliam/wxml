@@ -20,6 +20,8 @@ DEBUG_ATTR = False
 DEBUG_COMPILE = False
 DEBUG_TIME = False
 DEBUG_BIND = False
+DEBUG_ERROR = False
+DEBUG_EVENT = False
 
 class Ui(object):
     Registry = {}
@@ -42,6 +44,16 @@ class Ui(object):
                     UiBuilder.controls[name] = obj
             Ui._imported.add(class_obj.__module__)
 
+        return class_obj
+
+class Component(object):
+    Registry = {}
+
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, class_obj):
+        Component.Registry[self.name] = class_obj
         return class_obj
 
 def wx_getattr(value):
@@ -150,18 +162,31 @@ class UiBuilder(object):
         for widget, events in self.events.items():
             widget_name = self.debug_names[widget]
             setattr(obj, widget_name, widget)
+
             for (event, func, *evt_obj) in events:
                 event_type = wx_getattr(event)
 
                 if len(evt_obj):
-                    event_handler = Event(self.debug_names[evt_obj[0]])
+                    event_obj_name = self.debug_names[evt_obj[0]]
+                    event_handler = Event(event_obj_name)
                     args = (event_type, event_handler, evt_obj[0])
+
+                    if DEBUG_EVENT:
+                        print('  %s.%s event (%s) created' % (event_obj_name, event, event_handler.name), end='')
                 else:
                     event_handler = Event('%s_on_%s' % (widget_name, event.lstrip('EVT_').title()))
                     args = (event_type, event_handler)
 
+                    if DEBUG_EVENT:
+                        print('  %s.%s event (%s) created' % (widget_name, event, event_handler.name), end='')
+
                 if func is not None:
                     event_handler += func
+                    if DEBUG_EVENT:
+                        print(', connected to %s' % func, end='')
+
+                if DEBUG_EVENT:
+                    print()
 
                 widget.Bind(*args)
 
@@ -314,7 +339,7 @@ class UiBuilder(object):
             if len(value) > 2 and value[1] == ':':
                 value  = value[0] + value[2:]
 
-            if key not in exclude and (prefix is None or key.startswith(prefix)) and not (excl_prefix is not None and key.startswith(excl_prefix)):
+            if key not in exclude and (prefix is None or key.startswith(prefix)):
                 evaled[key] = self.str2py(value)
                 if DEBUG_ATTR:
                     print('   Attr={0} Input="{1}" Value={2}'.format(key, value, evaled[key]))
@@ -454,14 +479,24 @@ class UiBuilder(object):
                 elif call is not None and callable(call):
                     args = self.eval_args(func.attrib, exclude=["Name"])
 
-                    bindings = {k: v for k, v in args.items() if isinstance(v, tuple) and isinstance(v[0], bind.BindValue)}
+                    bindings = {
+                        k: v
+                        for k, v in args.items()
+                        if isinstance(v, tuple) and isinstance(v[0], bind.BindValue)
+                    }
+
+                    call_args = {k: v for k, v in args.items() if k not in bindings}
+                    binding_args = {k: v for k, v in call_args.items()}
+
                     for k, (b, e, t, v) in bindings.items():
                         if t is not None:
-                            args[k] = t.to_widget(b.value)
+                            call_args[k] = t.to_widget(b.value)
                         else:
-                            args[k] = b.value
+                            call_args[k] = b.value
 
-                    obj = call(**args)
+                        binding_args[k] = b
+
+                    obj = call(**call_args)
 
                     for name, (binding, event, transform, receiver) in bindings.items():
                         self.binding_hook(
@@ -470,7 +505,7 @@ class UiBuilder(object):
                             func.tag,
                             event=event,
                             transformer=transform,
-                            all_args=args,
+                            all_args=binding_args,
                             receiver=receiver)
 
                     name = func.attrib.get("Name")
@@ -497,8 +532,7 @@ class UiBuilder(object):
         can_update=True):
         attribute = getattr(parent, attr_name)
         if callable(attribute):
-            parent = attribute
-            attr_name = None
+            attr_name = attribute
             arguments = all_args
         else:
             arguments = {}
@@ -513,7 +547,6 @@ class UiBuilder(object):
                 bind_type = 'ToWidget'
             else:
                 bind_type = 'ToSource'
-
             print('  Bound {0} to {1}.{2} direction={3}'.format(
                 '<%s(%s):%s>'  % (binding.name or '',  binding.__class__.__name__, hex(id(binding))),
                 parent.__class__.__name__,
@@ -521,9 +554,8 @@ class UiBuilder(object):
                 bind_type
             ))
 
-
         if to_widget:
-            binding.add_target(parent, attr_name, transform=transformer)
+            binding.add_target(parent, attr_name, transform=transformer, arguments=arguments)
         if from_widget:
             binding.add_source(parent, event, attr_name, transform=receiver)
         if can_update:
@@ -707,7 +739,6 @@ class UiBuilder(object):
             sizer_args.update(widget_args)
             sizer_args.update(overrides)
 
-
             if all(hasattr(wx.SizerFlags, f) for f in sizer_args):
                 s = wx.SizerFlags()
                 for key, value in sizer_args.items():
@@ -755,10 +786,16 @@ class UiBuilder(object):
         tokens = method_name.split('.')
 
         e = self.eval_args({'arg': method_name})
+        if method_name.startswith('{:'):
+            method_name = e['arg']
+            tokens = method_name.split('.')
+
         if e['arg'] is not None and callable(e['arg']):
             method = e['arg']
         elif len(tokens) == 1:
-            method = getattr(sys.modules[self.controller], method_name, getattr(self.view_model, method_name, None))
+            method = getattr(
+                sys.modules[self.controller],
+                method_name, getattr(self.view_model, method_name, None))
         else:
             method = nested_getattr(method_name)
 
@@ -779,11 +816,13 @@ class UiBuilder(object):
     def include_view(self, node, parent, params):
         filename = node.attrib.get('view')
         name = node.attrib.get('Name', os.path.splitext(filename)[0])
+
         if filename in Ui.Registry:
             view_model = Ui.Registry[filename](defer=True)
         else:
-            view_model = GenericViewModel(filename, defer=True)
+            view_model = lambda **kwargs: GenericViewModel(filename, **kwargs)#defer=True)
             Ui.Registry[filename] = view_model
+            view_model = view_model(defer=True)
 
         view_model.build(parent=parent)
         self.debug_names[view_model.view] = name
@@ -998,18 +1037,19 @@ class ViewModel(object):
             if DEBUG_TIME:
                 print('%s construction time: %.2f seconds' % (self.filename, end - start))
 
-        for ex, node, parent, trace in ui.construction_errors:
 
-            ErrorViewModel.instance().add_error(
-                node,
-                self.filename,
-                parent,
-                ex,
-                trace
-            )
+        if DEBUG_ERROR:
+            for ex, node, parent, trace in ui.construction_errors:
+                ErrorViewModel.instance().add_error(
+                    node,
+                    self.filename,
+                    parent,
+                    ex,
+                    trace
+                )
 
-        if len(ui.construction_errors):
-            ErrorViewModel.instance().view.Show()
+            if len(ui.construction_errors):
+                ErrorViewModel.instance().view.Show()
 
         if self.view is not None:
             self.ready()

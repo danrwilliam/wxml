@@ -312,18 +312,18 @@ The parent class for the component can be specified using the `Parent` attribute
 <Component Name="EasyButton">
     <Button label="{:Label}">
         <EventBindings>
-            <EVT_BUTTON handler="{:Action}">
+            <EVT_BUTTON handler="{:Action}" />
         </EventBindings>
     </Button>
 </Component>
 
 <Component Name="EasyButton2" Parent="Button">
     <Config>
-        <Label value="{:Label}">
+        <Label value="{:Label}" />
         <ToolTip tooltip="{:Tooltip}" />
     </Config>
     <EventBindings>
-        <EVT_BUTTON handler="{:Action}">
+        <EVT_BUTTON handler="{:Action}" />
     </EventBindings>
 </Component>
 
@@ -359,8 +359,6 @@ class EasyChoice(wx.Choice):
 
 ## Details
 
-### ViewModel Construction
-
 ### Attribute Evaluation Order
 
 This section describes how a string value of an node's attribute is converted into an useable item. This evaluation is performed in ```UiBuilder.str2py(value)```.
@@ -383,6 +381,21 @@ collisions with classes.
 - Converts to ```int``` or ```float```.
 - For each imported wxPython modules, calls ```exec``` on the string in the context of that module.
 - Returns the original string value, if all previous steps failed.
+
+### Debugging Flags
+
+The following are flags that will echo information about the parsing, evaluation, and construction of an Xml file.
+
+They can be accessed by importing `wxml.builder`.
+
+- `DEBUG_EVAL`: Shows input strings and their evaluated output.
+- `DEBUG_ATTR`: Shows attribute names, their string value, and the evaluated value.
+- `DEBUG_COMPILE`: For each node in the document, shows what `wxml.builder` method was used to process the node.
+- `DEBUG_TIME`: Prints how long the construction process took for each ViewModel built.
+- `DEBUG_BIND`: Shows what bind values are bound to which object, its method or attribute, and the direction of the binding.
+- `DEBUG_ERROR`: When true, the error viewer will display construction errors.
+- `DEBUG_EVENT`: Shows which event handlers were constructed for event bindings, and methods that were subscribed automatically.
+
 
 ## Decorators
 

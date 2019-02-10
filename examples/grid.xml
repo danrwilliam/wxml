@@ -37,5 +37,10 @@
     <Config>
         <SetInitialSize size="500, 500" />
         <Title value="Binding Fun" />
+
+        <CreateStatusBar number="2" style="~STB_SIZEGRIP + STB_DEFAULT_STYLE" Name="status">
+            <SetStatusText text="(text[str.upper])" i="0" />
+            <SetStatusText text="(text[str.lower])" i="1" />
+        </CreateStatusBar>
     </Config>
 </Frame>
