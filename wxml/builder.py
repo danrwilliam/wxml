@@ -23,6 +23,7 @@ DEBUG_BIND = False
 
 class Ui(object):
     Registry = {}
+    _imported = set()
 
     def __init__(self, view_name):
         self.filename = view_name
@@ -33,16 +34,14 @@ class Ui(object):
         use_name = self.filename
         class_obj.filename = xml_path
         Ui.Registry[use_name] = class_obj
-        return class_obj
 
-class Component(object):
-    Registry = {}
+        # Import any custom wx controls from files that are defined
+        if class_obj.__module__ != 'wxml.builder' and class_obj.__module__  not in Ui._imported:
+            for name, obj in sys.modules[class_obj.__module__].__dict__.items():
+                if isinstance(obj, type) and issubclass(obj, wx.Control):
+                    UiBuilder.controls[name] = obj
+            Ui._imported.add(class_obj.__module__)
 
-    def __init__(self, name):
-        self.name = name
-
-    def __call__(self, class_obj):
-        Component.Registry[self.name] = class_obj
         return class_obj
 
 def wx_getattr(value):
@@ -114,6 +113,7 @@ NodePost = NodeRegistry()
 
 class UiBuilder(object):
     components = {}
+    controls = {}
 
     def __init__(self, filename):
         self.filename = filename
@@ -305,7 +305,7 @@ class UiBuilder(object):
 
         return retval
 
-    def eval_args(self, args, exclude=None, prefix=None, only_args=None):
+    def eval_args(self, args, exclude=None, prefix=None, only_args=None, excl_prefix=None):
         evaled = {}
         exclude = exclude or []
         iterator = {k: args[k] for k in only_args if k in args} if only_args is not None else args
@@ -314,7 +314,7 @@ class UiBuilder(object):
             if len(value) > 2 and value[1] == ':':
                 value  = value[0] + value[2:]
 
-            if key not in exclude and (prefix is None or key.startswith(prefix)):
+            if key not in exclude and (prefix is None or key.startswith(prefix)) and not (excl_prefix is not None and key.startswith(excl_prefix)):
                 evaled[key] = self.str2py(value)
                 if DEBUG_ATTR:
                     print('   Attr={0} Input="{1}" Value={2}'.format(key, value, evaled[key]))
@@ -648,13 +648,21 @@ class UiBuilder(object):
     def wx_custom(self, node, parent, params):
         return self.wx_node(node, parent, params, tag=node.attrib.pop('_class'))
 
+    @Node.filter(lambda n: n.tag in UiBuilder.controls)
+    def wx_custom_control(self, node, parent=None, params=None, root=wx, tag=None):
+        print(node)
+        return self.wx_node(node, parent, params, actual_obj=UiBuilder.controls[node.tag])
+
     @Node.filter(lambda n: hasattr(wx, n.tag))
-    def wx_node(self, node, parent=None, params=None, root=wx, tag=None):
+    def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None):
         params = params or {}
 
-        class_obj = nested_getattr(tag or node.tag, root=root)
-        if class_obj is None:
-            class_obj = wx_getattr(tag or node.tag)
+        if actual_obj is not None:
+            class_obj = actual_obj
+        else:
+            class_obj = nested_getattr(tag or node.tag, root=root)
+            if class_obj is None:
+                class_obj = wx_getattr(tag or node.tag)
 
         if class_obj is None:
             raise Exception('wx object [%s] could not be found' % (tag or node.tag))
@@ -862,10 +870,6 @@ class UiBuilder(object):
 
         UiBuilder.components[name] = custom_obj
 
-    # @Node.filter(lambda n: n.tag in UiBuilder.components)
-    # def pass_(self):
-        # pass
-
     @Node.node('Menu')
     def create_menu(self, node, parent, params):
         params = params or {}
@@ -897,6 +901,10 @@ class UiBuilder(object):
                 menu_item = menu.Append(item_id, name, kind=item_kind, helpString=item_help)
                 self.debug_names[menu_item] = "%s_on_%s" % (menu_name, child.tag)
 
+                p = child.find('Config')
+                if p:
+                    self.setup_parent(p, menu_item, params)
+
                 handler = child.attrib.get('handler')
                 if handler is not None:
                     func = self.find_method(handler)
@@ -909,7 +917,6 @@ class UiBuilder(object):
                     acc, char = scut
                     self.accel_table.append((acc, char, insert_id))
 
-                # mp = params['menu_parent'].GetTopLevelParent()
                 mp = parent
                 if mp not in self.events:
                     self.events[mp] = []
@@ -992,6 +999,7 @@ class ViewModel(object):
                 print('%s construction time: %.2f seconds' % (self.filename, end - start))
 
         for ex, node, parent, trace in ui.construction_errors:
+
             ErrorViewModel.instance().add_error(
                 node,
                 self.filename,
@@ -1072,12 +1080,10 @@ class ErrorViewModel(ViewModel):
 
     @invoke_ui
     def clear(self):
-        print('clearing...')
         self.err_list.DeleteAllItems()
         self.msg_detail = []
-        #self.err_list.UnselectRow(self.selection.value)
 
-def run(view_model: ViewModel, *args, **kwargs):
+def run(view_model: ViewModel, *args, inspect=False, **kwargs):
     """
         Creates a wx.App, builds the given view_model and then
         starts the UI thread.
@@ -1088,5 +1094,9 @@ def run(view_model: ViewModel, *args, **kwargs):
     app = wx.App()
     view = view_model(*args, **kwargs)
     view.view.Show(True)
+
+    if inspect:
+        view.inspect()
+
     app.MainLoop()
     bind.DataStore.save()
