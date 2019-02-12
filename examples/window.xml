@@ -47,11 +47,6 @@
             <Information />
             <Update Label="Check for updates" />
         </Menu>
-<!--
-        <Config>
-            <Append menu="{file}" title="File" />
-            <Append menu="{about}" title="About" />
-        </Config> -->
     </MenuBar>
 
     <Config>

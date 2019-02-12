@@ -1,0 +1,37 @@
+<!--
+    This is an example that shows how to create a custom component with default arguments
+    for some of its configuration options. Additionally, it is possible to specify a
+    binding strategy that is used for an option, so the client does not need to worry about
+    that.
+    When this is the case, the bind value should be surrounded with braces.
+
+-->
+
+<Frame>
+    <Component Name="LabelTextCtrl">
+        <BoxSizer orient="{:Direction=VERTICAL}" Expand="" Border="ALL, 1" />
+
+        <StaticText label="{:Label}" />
+        <TextCtrl value="(:Text:EVT_TEXT)" />
+    </Component>
+
+    <Config>
+        <CreateStatusBar number="2" style="~STB_SIZEGRIP + STB_DEFAULT_STYLE" Name="status">
+            <SetStatusText text="(username[append_usr])" i="0" />
+            <SetStatusText text="(password[append_pwd])" i="1" />
+        </CreateStatusBar>
+    </Config>
+
+    <Panel>
+        <BoxSizer orient="VERTICAL" Border="ALL, 4" />
+
+        <LabelTextCtrl Label="Username" Text="{username}" />
+        <LabelTextCtrl Label="Password" Text="{password}" />
+
+        <StaticText label="You entered" />
+
+        <StaticText label="(username)" />
+        <StaticText label="(password)" />
+    </Panel>
+
+</Frame>

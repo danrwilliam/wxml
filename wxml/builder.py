@@ -41,20 +41,18 @@ class Ui(object):
         if class_obj.__module__ != 'wxml.builder' and class_obj.__module__  not in Ui._imported:
             for name, obj in sys.modules[class_obj.__module__].__dict__.items():
                 if isinstance(obj, type) and issubclass(obj, wx.Control):
-                    UiBuilder.controls[name] = obj
+                    use_name = '%s.%s' % (obj.__module__, obj.__qualname__)
+                    Control.Registry[use_name] = obj
             Ui._imported.add(class_obj.__module__)
 
         return class_obj
 
-class Component(object):
+class Control(object):
     Registry = {}
 
-    def __init__(self, name):
-        self.name = name
-
-    def __call__(self, class_obj):
-        Component.Registry[self.name] = class_obj
-        return class_obj
+    def __init__(self, class_obj):
+        use_name = '%s.%s' % (class_obj.__module__, class_obj.__qualname__)
+        Control.Registry[use_name] = class_obj
 
 def wx_getattr(value):
     if hasattr(wx, value):
@@ -66,6 +64,9 @@ def wx_getattr(value):
 
     if value in UiBuilder.components:
         return UiBuilder.components[value]
+
+    if value in Control.Registry:
+        return Control.Registry[value]
 
 def wx_hasattr(value):
     return wx_getattr(value) is not None
@@ -125,7 +126,6 @@ NodePost = NodeRegistry()
 
 class UiBuilder(object):
     components = {}
-    controls = {}
 
     def __init__(self, filename):
         self.filename = filename
@@ -418,11 +418,12 @@ class UiBuilder(object):
 
         if not hasattr(self, 'overrides'):
             overrides = {
-                name: self.str2py(node.attrib.get(name, getattr(self, 'overrides', {}).get(name, '')))
-                for name in overrides
+                name: self.str2py(node.attrib.get(name, getattr(self, 'overrides', {}).get(name, default or '')))
+                for name, default in overrides.items()
             }
 
             self.overrides = overrides
+            print(overrides)
             within = False
         else:
             within = True
@@ -680,10 +681,9 @@ class UiBuilder(object):
     def wx_custom(self, node, parent, params):
         return self.wx_node(node, parent, params, tag=node.attrib.pop('_class'))
 
-    @Node.filter(lambda n: n.tag in UiBuilder.controls)
+    @Node.filter(lambda n: n.tag in Control.Registry)
     def wx_custom_control(self, node, parent=None, params=None, root=wx, tag=None):
-        print(node)
-        return self.wx_node(node, parent, params, actual_obj=UiBuilder.controls[node.tag])
+        return self.wx_node(node, parent, params, actual_obj=Control.Registry[node.tag])
 
     @Node.filter(lambda n: hasattr(wx, n.tag))
     def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None):
@@ -874,8 +874,8 @@ class UiBuilder(object):
         elem = ET.Element(name)
         elem.attrib.update({k: v for k, v in node.attrib.items() if k not in ('Name', 'Parent')})
 
-        if name in Component.Registry:
-            custom_obj = Component.Registry[name]
+        if name in Control.Registry:
+            custom_obj = Control.Registry[name]
         else:
             parents = [wx_getattr(parent_type)]
             custom_obj = type(name, tuple(parents), {})
@@ -883,22 +883,28 @@ class UiBuilder(object):
         def find_vars(root):
             overrides = []
             for idx, child in enumerate(root):
-                if child.tag in Component.Registry:
-                    vars = Component.Registry[child.tag]._overrides
+                if child.tag in UiBuilder.components:
+                    vars = UiBuilder.components[child.tag]._overrides
                 else:
-                    vars = [
-                        k.replace(':', '', 1)[1:-1]
-                        for k in child.attrib.values()
-                        if len(k) > 2 and k[1] == ':'
-                    ]
+                    vars = set()
+                    for n, k in child.attrib.items():
+                        if len(k) > 2 and k[1] == ':':
+                            temp = k.replace(':', '' , 1)[1:-1]
+                            t = temp.split('=', 1)
+                            if len(t) > 1:
+                                default = t[1]
+                                child.attrib[n] = k.replace('=%s' % default, '')
+                            else:
+                                default = None
+                            vars.add((t[0], default))
 
                 overrides.extend(vars)
                 overrides.extend(find_vars(child))
             return overrides
 
         overrides = {
-            re.split('[:\[]', f)[0].split('.')[0]
-            for f in find_vars(node)
+            re.split('[:\[]', f)[0].split('.')[0]: d
+            for f, d in find_vars(node)
         }
 
         for idx, child in enumerate(node):
