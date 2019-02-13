@@ -57,7 +57,7 @@ class Control(object):
     Registry = {}
 
     def __init__(self, class_obj):
-        Control.Registry[use_name] = full_class_path(class_obj)
+        Control.Registry[full_class_path(class_obj)] = class_obj
 
 def wx_getattr(value):
     if hasattr(wx, value):
