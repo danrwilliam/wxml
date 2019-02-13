@@ -6,6 +6,7 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
+import wxml.builder
 from wxml.decorators import invoke_ui
 
 class DesignThread(object):
@@ -19,8 +20,11 @@ class DesignThread(object):
 
         self._hidden = wx.Frame(None, wx.ID_ANY)
 
+        self.recreate_done = threading.Event()
+
         self.recreate()
         self.thread = threading.Thread(target=self.watch)
+
 
     def close(self, evt: wx.Event):
         evt.StopPropagation()
@@ -49,12 +53,27 @@ class DesignThread(object):
         if hasattr(self, 'position'):
             self.view.view.Position = self.position
 
+        self.recreate_done.set()
+
     def watch(self):
-        tstamp = os.stat(self.filename).st_mtime
+        import collections
+        Main = collections.namedtuple('Wrap', 'filename')(self.filename)
+
+        self.recreate_done.wait()
+
+        watch_files = {
+                f.filename: os.stat(f.filename).st_mtime
+                for f in list(wxml.builder.Ui.Registry.values()) + [Main]
+        }
 
         while not self.closed.is_set():
-            now = os.stat(self.filename).st_mtime
-            if now > tstamp:
-                tstamp = now
+            if any(os.stat(f).st_mtime > watch_files[f] for f in watch_files):
+                watch_files = {
+                    f.filename: os.stat(f.filename).st_mtime
+                    for f in list(wxml.builder.Ui.Registry.values()) + [Main]
+                }
+                self.recreate_done.clear()
                 self.recreate()
+                self.recreate_done.wait()
+
             self.closed.wait(timeout=1)

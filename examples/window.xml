@@ -1,4 +1,4 @@
-<Frame title="$SplitterWindow">
+<Frame title="$SplitterWindow with Menus Exampl">
     <SplitterWindow>
         <Panel Name="top">
             <BoxSizer Expand="" orient="VERTICAL" Border="ALL, 5" Proportion="1">
@@ -21,11 +21,12 @@
                         <AddPage page="{messages}" text="Messages" />
                     </Config>
                 </Notebook>
+                <View view="examples\view.xml" />
             </BoxSizer>
         </Panel>
 
         <Config>
-            <SplitHorizontally window1="{top}" window2="{bottom}" />
+            <SplitHorizontally window1="{bottom}" window2="{top}" />
             <SashGravity value="0.5" />
             <SashPosition value="50" />
         </Config>
@@ -39,11 +40,19 @@
                 <Nested2 />
             </Menu>
             <___ />
-            <Quit id='exit' help='Quits the application' />
+            <Quit id='exit'>
+                <Config>
+                    <Bitmap value="wx.ArtProvider.GetBitmap(wx.ART_WARNING, size=(16, 16))" />
+                </Config>
+            </Quit>
         </Menu>
 
         <Menu Name="About">
-            <Help />
+            <Help>
+                <Config>
+                    <Help value="this is a test" />
+                </Config>
+            </Help>
             <Information />
             <Update Label="Check for updates" />
         </Menu>

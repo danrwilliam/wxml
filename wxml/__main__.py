@@ -8,9 +8,14 @@ parser.add_argument('filename', type=os.path.abspath, help='Xml file to build an
 parser.add_argument('--inspect', '-i', action='store_true', help='Opens the wxpython inspector after construction')
 parser.add_argument('--design', '-d', action='store_true', help='Watch the named file for changes, and reload if it changes')
 parser.add_argument('--verbose', '-v', action='store_true')
+parser.add_argument('--debug-flags', '-f', type=lambda s: s.split(','), default=[])
 opts = parser.parse_args()
 
 app = wx.App()
+
+for f in opts.debug_flags:
+    if hasattr(wxml.builder, 'DEBUG_%s' % f.upper()):
+        setattr(wxml.builder, 'DEBUG_%s' % f.upper(), True)
 
 def create(filename):
     if filename in wxml.Ui.Registry:
@@ -25,13 +30,14 @@ if opts.design:
     watch = DesignThread(
         opts.filename,
         create=create,
-        #error=wxml.ErrorViewModel.instance if opts.verbose else None
+        error=wxml.ErrorViewModel.instance if opts.verbose else None
     )
     watch.thread.start()
 else:
     vm = create(opts.filename)
-    vm.view.Show()
-    if opts.inspect:
-        vm.inspect()
+    if vm.view is not None:
+        vm.view.Show()
+        if opts.inspect:
+            vm.inspect()
 
 app.MainLoop()

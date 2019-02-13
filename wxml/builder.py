@@ -10,6 +10,7 @@ import functools
 import threading
 import re
 from typing import NamedTuple
+import traceback
 import logging
 
 from wxml.event import Event
@@ -362,8 +363,6 @@ class UiBuilder(object):
             obj = action(self, node, parent, params)
         except Exception as ex:
             print('ERROR', '[tag: %s]' % node.tag, '[parent: %s]' % parent, 'exception:', ex)
-            import traceback
-            traceback.print_exc()
             self.construction_errors.append([ex, node, parent, traceback.format_exc()])
             return
 
@@ -391,9 +390,9 @@ class UiBuilder(object):
             try:
                 post_action(self, node, parent_obj, params)
             except Exception as ex:
-                print('ERROR', '[tag post: %s]' % node.tag, '[parent: %s]' % parent, 'exception:', ex)
-                import traceback
-                traceback.print_exc()
+                if DEBUG_ERROR:
+                    print('ERROR', '[tag post: %s]' % node.tag, '[parent: %s]' % parent, 'exception:', ex)
+                self.construction_errors.append([ex, node + '.post', parent, traceback.format_exc()])
 
         return parent_obj
 
@@ -473,66 +472,72 @@ class UiBuilder(object):
             parent = parent.Sizer
 
         for func in root:
-            if func.tag == 'Loop':
-                self.loop_over(func, parent, params)
+            try:
+                if func.tag == 'Loop':
+                    self.loop_over(func, parent, params)
+                else:
+                    self.setup_parent_node(func, parent, params)
+            except Exception as ex:
+                self.construction_errors.append([ex, func, parent, traceback.format_exc()])
+
+    def setup_parent_node(self, func, parent, params):
+        call = getattr(parent, func.tag)
+
+        # one-way bind to property, will update BindValue when event is fired
+        if 'Bind' in func.attrib:
+            binding, event, transform, receiver = self.str2py(func.attrib['Bind'])
+            self.binding_hook(binding, parent, func.tag, event=event, receiver=receiver, can_update=False)
+        elif call is not None and callable(call):
+            args = self.eval_args(func.attrib, exclude=["Name"])
+
+            bindings = {
+                k: v
+                for k, v in args.items()
+                if isinstance(v, tuple) and isinstance(v[0], bind.BindValue)
+            }
+
+            call_args = {k: v for k, v in args.items() if k not in bindings}
+            binding_args = {k: v for k, v in call_args.items()}
+
+            for k, (b, e, t, v) in bindings.items():
+                if t is not None:
+                    call_args[k] = t.to_widget(b.value)
+                else:
+                    call_args[k] = b.value
+
+                binding_args[k] = b
+
+            obj = call(**call_args)
+
+            for name, (binding, event, transform, receiver) in bindings.items():
+                self.binding_hook(
+                    binding,
+                    parent,
+                    func.tag,
+                    event=event,
+                    transformer=transform,
+                    all_args=binding_args,
+                    receiver=receiver)
+
+            name = func.attrib.get("Name")
+            if name is not None:
+                self.debug_names[obj] = name
+
+            self.setup_parent(func, obj, params)
+        elif call is not None or func.tag in dir(parent):
+            set_to = self.eval_args({'value': func.attrib.get('value')})['value']
+            if isinstance(set_to, tuple) and isinstance(set_to[0], bind.BindValue):
+                binding, event, transformer, receiver = set_to
+                self.binding_hook(
+                    binding,
+                    parent,
+                    func.tag,
+                    event=event,
+                    transformer=transformer,
+                    receiver=receiver
+                )
             else:
-                call = getattr(parent, func.tag)
-
-                # one-way bind to property, will update BindValue when event is fired
-                if 'Bind' in func.attrib:
-                    binding, event, transform, receiver = self.str2py(func.attrib['Bind'])
-                    self.binding_hook(binding, parent, func.tag, event=event, receiver=receiver, can_update=False)
-                elif call is not None and callable(call):
-                    args = self.eval_args(func.attrib, exclude=["Name"])
-
-                    bindings = {
-                        k: v
-                        for k, v in args.items()
-                        if isinstance(v, tuple) and isinstance(v[0], bind.BindValue)
-                    }
-
-                    call_args = {k: v for k, v in args.items() if k not in bindings}
-                    binding_args = {k: v for k, v in call_args.items()}
-
-                    for k, (b, e, t, v) in bindings.items():
-                        if t is not None:
-                            call_args[k] = t.to_widget(b.value)
-                        else:
-                            call_args[k] = b.value
-
-                        binding_args[k] = b
-
-                    obj = call(**call_args)
-
-                    for name, (binding, event, transform, receiver) in bindings.items():
-                        self.binding_hook(
-                            binding,
-                            parent,
-                            func.tag,
-                            event=event,
-                            transformer=transform,
-                            all_args=binding_args,
-                            receiver=receiver)
-
-                    name = func.attrib.get("Name")
-                    if name is not None:
-                        self.debug_names[obj] = name
-
-                    self.setup_parent(func, obj, params)
-                elif call is not None or func.tag in dir(parent):
-                    set_to = self.eval_args({'value': func.attrib.get('value')})['value']
-                    if isinstance(set_to, tuple) and isinstance(set_to[0], bind.BindValue):
-                        binding, event, transformer, receiver = set_to
-                        self.binding_hook(
-                            binding,
-                            parent,
-                            func.tag,
-                            event=event,
-                            transformer=transformer,
-                            receiver=receiver
-                        )
-                    else:
-                        setattr(parent, func.tag, set_to)
+                setattr(parent, func.tag, set_to)
 
     def binding_hook(self, binding: bind.BindValue, parent, attr_name, event=None, transformer=None, all_args=None, receiver=None,
         can_update=True):
@@ -960,15 +965,19 @@ class UiBuilder(object):
                     kind_string = 'ITEM_' + child.attrib.get('kind', 'NORMAL').upper().lstrip('ITEM_')
                     item_kind = self.str2py(kind_string)
 
-                item_help = child.attrib.get('help', '')
+                item_help = child.attrib.get('helpString', '')
 
                 name = child.attrib.get('Label', child.tag)
-                menu_item = menu.Append(item_id, name, kind=item_kind, helpString=item_help)
-                self.debug_names[menu_item] = "%s_on_%s" % (menu_name, child.tag)
 
-                p = child.find('Config')
-                if p:
-                    self.setup_parent(p, menu_item, params)
+                menu_item = wx.MenuItem(id=item_id, text=name, kind=item_kind, helpString=item_help)
+
+                # build menu item before appending, so things like bitmaps work
+                for c in child:
+                    self.compile(c, menu_item, params)
+
+                menu.Append(menu_item)
+
+                self.debug_names[menu_item] = "%s_on_%s" % (menu_name, child.tag)
 
                 handler = child.attrib.get('handler')
                 if handler is not None:
