@@ -1,0 +1,18 @@
+<Frame>
+    <Panel>
+        <BoxSizer orient="VERTICAL" Border="ALL, 5" Expand="" />
+
+        <CustomListView title="Test" Proportion="1"/>
+
+        <Panel Proportion="1">
+            <BoxSizer Border="ALL, 10" Expand="" />
+            <CustomListView Proportion="2" />
+            <CustomListView Proportion="1" />
+        </Panel>
+
+    </Panel>
+
+    <Config>
+        <SetInitialSize size="800, 600" />
+    </Config>
+</Frame>

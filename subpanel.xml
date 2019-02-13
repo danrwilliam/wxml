@@ -1,0 +1,9 @@
+<Panel>
+    <BoxSizer orient="VERTICAL" />
+    <StaticText label="test static" />
+    <Button label="Test">
+        <EventBindings>
+            <EVT_BUTTON handler="parent.update_crawl" />
+        </EventBindings>
+    </Button>
+</Panel>

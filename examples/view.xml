@@ -1,0 +1,6 @@
+<wx.dataview.DataViewListCtrl style="DV_ROW_LINES | DV_HORIZ_RULES | DV_VERT_RULES">
+    <Config>
+        <AppendTextColumn label="{title}" />
+        <AppendTextColumn label="ColumnB" />
+    </Config>
+</wx.dataview.DataViewListCtrl>

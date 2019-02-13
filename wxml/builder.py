@@ -6,6 +6,7 @@ import collections
 import importlib
 import sys
 import ast
+import functools
 import threading
 import re
 from typing import NamedTuple
@@ -23,6 +24,10 @@ DEBUG_BIND = False
 DEBUG_ERROR = False
 DEBUG_EVENT = False
 
+def full_class_path(class_type: type):
+    module = '' if class_type.__module__ == "__main__" else '%s.' % class_type.__module__
+    return '%s%s' % (module, class_type.__qualname__)
+
 class Ui(object):
     Registry = {}
     _imported = set()
@@ -35,14 +40,15 @@ class Ui(object):
         xml_path = os.path.abspath(os.path.join(os.path.dirname(defined_in), self.filename))
         use_name = self.filename
         class_obj.filename = xml_path
+        # make it available as the filename, and the class name
         Ui.Registry[use_name] = class_obj
+        Ui.Registry[full_class_path(class_obj)] = class_obj
 
         # Import any custom wx controls from files that are defined
         if class_obj.__module__ != 'wxml.builder' and class_obj.__module__  not in Ui._imported:
             for name, obj in sys.modules[class_obj.__module__].__dict__.items():
                 if isinstance(obj, type) and issubclass(obj, wx.Control):
-                    use_name = '%s.%s' % (obj.__module__, obj.__qualname__)
-                    Control.Registry[use_name] = obj
+                    Control.Registry[full_class_path(use_name)] = obj
             Ui._imported.add(class_obj.__module__)
 
         return class_obj
@@ -51,8 +57,7 @@ class Control(object):
     Registry = {}
 
     def __init__(self, class_obj):
-        use_name = '%s.%s' % (class_obj.__module__, class_obj.__qualname__)
-        Control.Registry[use_name] = class_obj
+        Control.Registry[use_name] = full_class_path(class_obj)
 
 def wx_getattr(value):
     if hasattr(wx, value):
@@ -130,7 +135,7 @@ class UiBuilder(object):
     def __init__(self, filename):
         self.filename = filename
 
-    def build(self, view_model, parent=None):
+    def build(self, view_model, parent=None, sizer_flags=None):
         self.view_model = view_model
         self.counter = collections.defaultdict(lambda: 0)
         self.debug_names = {}
@@ -148,6 +153,7 @@ class UiBuilder(object):
             return None
 
         root = tree.getroot()
+        root.attrib.update(sizer_flags or {})
 
         self.controller = root.attrib.pop('Controller', '__main__')
 
@@ -423,7 +429,6 @@ class UiBuilder(object):
             }
 
             self.overrides = overrides
-            print(overrides)
             within = False
         else:
             within = True
@@ -667,8 +672,9 @@ class UiBuilder(object):
         this_obj = class_obj(**self.eval_args(node.attrib, exclude=self.SizerFlags(class_obj)))
 
         sizer_flags = self.eval_args(node.attrib, only_args=self.SizerFlags(class_obj))
-        params['default-sizer'] = sizer_flags
+        #params['default-sizer'] = sizer_flags
 
+        this_obj.default_flags = sizer_flags
         parent.SetSizer(this_obj)
 
         var_name = '%s_%d' % (node.tag, self.counter[class_obj])
@@ -733,7 +739,7 @@ class UiBuilder(object):
         self.children[var_name] = this_obj
 
         if parent is not None and parent.Sizer is not None:
-            sizer_args = {k: v for k, v in params.get('default-sizer', {}).items()}
+            sizer_args = {k: v for k, v in getattr(parent.Sizer, 'default_flags', {}).items()}
             widget_args = self.eval_args(style_args, only_args=self.SizerFlags(parent.Sizer))
             overrides = self.eval_args(node.attrib, only_args=self.SizerFlags(parent.Sizer))
             sizer_args.update(widget_args)
@@ -756,6 +762,9 @@ class UiBuilder(object):
             params['sizer'] = None
 
         return this_obj
+
+    def add_to_sizer(self, node, parent, this_obj):
+        pass
 
     @Node.filter(lambda n: any(hasattr(mod, n.tag) for name, mod in sys.modules.items() if name.startswith('wx')))
     def wx_imported(self, node, parent=None, params=None):
@@ -813,20 +822,31 @@ class UiBuilder(object):
             parent.SetSizerAndFit(parent.Sizer)
 
     @Node.node('View')
+    @Node.filter(lambda n: n.tag in Ui.Registry)
     def include_view(self, node, parent, params):
-        filename = node.attrib.get('view')
-        name = node.attrib.get('Name', os.path.splitext(filename)[0])
+        if node.tag == 'View':
+            filename = node.attrib.get('view')
+        else:
+            filename = node.tag
 
         if filename in Ui.Registry:
-            view_model = Ui.Registry[filename](defer=True)
+            view_model = Ui.Registry[filename]
         else:
-            view_model = lambda **kwargs: GenericViewModel(filename, **kwargs)#defer=True)
+            view_model = lambda *args, **kwargs: GenericViewModel(filename, *args, **kwargs)
             Ui.Registry[filename] = view_model
-            view_model = view_model(defer=True)
 
-        view_model.build(parent=parent)
-        self.debug_names[view_model.view] = name
-        self.children[name] = view_model.view
+        sizer_flags = self.SizerFlags(parent.Sizer)
+        sizer_args = {k: v for k, v in node.attrib.items() if k in sizer_flags}
+
+        args = self.eval_args(node.attrib, exclude=self.SizerFlags(parent) + ['Name', 'View', 'view'])
+        constructed = view_model(defer=True, **args)
+        constructed.build(parent=parent, sizer_flags=sizer_args)
+
+        name = node.attrib.get('Name', '%s_%d' % (constructed.__class__.__name__, self.counter[constructed.__class__]))
+        self.counter[constructed.__class__] += 1
+
+        self.debug_names[constructed.view] = name
+        self.children[name] = constructed.view
 
     @Node.node('Styles')
     def push_styles(self, node, parent, params):
@@ -1013,7 +1033,7 @@ class ViewModel(object):
         import wx.lib.inspection
         wx.lib.inspection.InspectionTool().Show()
 
-    def build(self, parent: wx.Object=None):
+    def build(self, parent: wx.Object=None, sizer_flags=None):
         """
             Builds the UI from the XML file for this ViewModel.
             When the UI is built, events from the view are wired up
@@ -1026,7 +1046,7 @@ class ViewModel(object):
             raise IOError('XML file not found: %s' % self.filename)
 
         ui = UiBuilder(self.filename)
-        view = self.view = ui.build(self, parent=parent)
+        view = self.view = ui.build(self, parent=parent, sizer_flags=sizer_flags)
 
         if view is not None:
             events = [v for v in view.__dict__.values() if isinstance(v, Event)]
