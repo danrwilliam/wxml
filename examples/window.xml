@@ -26,7 +26,7 @@
         </Panel>
 
         <Config>
-            <SplitHorizontally window1="{bottom}" window2="{top}" />
+            <SplitHorizontally window1="{top}" window2="{bottom}" />
             <SashGravity value="0.5" />
             <SashPosition value="50" />
         </Config>

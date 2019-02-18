@@ -1,18 +1,47 @@
 <Frame>
+
+    <Config>
+        <Title value="(selected_tab[strapped])" />
+        <SetInitialSize size="800, 600" />
+        <CreateStatusBar number="4">
+            <SetStatusText i="0" text="MenuTab" />
+            <SetStatusText i="1" text="(menu_tab[str])" />
+            <SetStatusText i="2" text="SelectedTab" />
+            <SetStatusText i="3" text="(selected_tab[str])" />
+        </CreateStatusBar>
+    </Config>
+
     <Panel>
         <BoxSizer orient="VERTICAL" Border="ALL, 5" Expand="" />
 
-        <CustomListView title="Test" Proportion="1"/>
+        <Notebook Proportion="1">
+            <CustomListView title="Test" Name="page1" />
 
-        <Panel Proportion="1">
-            <BoxSizer Border="ALL, 10" Expand="" />
-            <CustomListView Proportion="2" />
-            <CustomListView Proportion="1" />
-        </Panel>
+            <Panel Name="page2">
+                <BoxSizer Border="ALL, 5" Expand="" />
+                    <CustomListView Proportion="2" />
+                    <CustomListView Proportion="1" />
+            </Panel>
 
+            <Config>
+                <AddPage page="{page1}" text="Test" />
+                <AddPage page="{page2}" text="Test2" />
+
+                <Selection value="(selected_tab:EVT_NOTEBOOK_PAGE_CHANGED)" />
+            </Config>
+
+            <EventBindings>
+                <EVT_RIGHT_DOWN handler="menu_tab.push_event" />
+            </EventBindings>
+
+        </Notebook>
     </Panel>
 
-    <Config>
-        <SetInitialSize size="800, 600" />
-    </Config>
+    <MenuBar>
+        <Menu Name="File">
+            <MenuItem text="Option" />
+            <Secondary />
+            <MenuItem_2 />
+        </Menu>
+    </MenuBar>
 </Frame>

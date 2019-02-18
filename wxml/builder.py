@@ -133,12 +133,15 @@ NodePost = NodeRegistry()
 class UiBuilder(object):
     components = {}
 
+    debug_names = {}
+    counter = collections.defaultdict(lambda: 0)
+
     def __init__(self, filename):
         self.filename = filename
 
     def build(self, view_model, parent=None, sizer_flags=None):
         self.view_model = view_model
-        self.counter = collections.defaultdict(lambda: 0)
+
         self.debug_names = {}
         self.events = {}
         self.children = {}
@@ -167,42 +170,48 @@ class UiBuilder(object):
             obj.widgets[name] = widget
 
         for widget, events in self.events.items():
-            widget_name = self.debug_names[widget]
-            setattr(obj, widget_name, widget)
-
-            for (event, func, *evt_obj) in events:
-                event_type = wx_getattr(event)
-
-                if len(evt_obj):
-                    event_obj_name = self.debug_names[evt_obj[0]]
-                    event_handler = Event(event_obj_name)
-                    args = (event_type, event_handler, evt_obj[0])
-
-                    if DEBUG_EVENT:
-                        print('  %s.%s event (%s) created' % (event_obj_name, event, event_handler.name), end='')
-                else:
-                    event_handler = Event('%s_on_%s' % (widget_name, event.lstrip('EVT_').title()))
-                    args = (event_type, event_handler)
-
-                    if DEBUG_EVENT:
-                        print('  %s.%s event (%s) created' % (widget_name, event, event_handler.name), end='')
-
-                if func is not None:
-                    event_handler += func
-                    if DEBUG_EVENT:
-                        print(', connected to %s' % func, end='')
-
-                if DEBUG_EVENT:
-                    print()
-
-                widget.Bind(*args)
-
-                setattr(obj, event_handler.name, event_handler)
+            self.build_widget_events(obj, widget, events)
 
         if hasattr(obj, 'SetAcceleratorTable') and len(self.accel_table):
             obj.SetAcceleratorTable(wx.AcceleratorTable(self.accel_table))
 
+        UiBuilder.debug_names.update(self.debug_names)
+
         return obj
+
+    def build_widget_events(self, obj, widget, events):
+        widget_name = self.debug_names[widget]
+        setattr(obj, widget_name, widget)
+
+        for (event, func, *evt_obj) in events:
+            event_type = wx_getattr(event)
+
+            if len(evt_obj):
+                event_obj_name = self.debug_names[evt_obj[0]]
+                event_handler = Event(event_obj_name)
+                args = (event_type, event_handler, evt_obj[0])
+
+                if DEBUG_EVENT:
+                    print('  %s.%s event (%s) created' % (event_obj_name, event, event_handler.name), end='')
+            else:
+                event_handler = Event('%s_on_%s' % (widget_name, event.lstrip('EVT_').title()))
+                args = (event_type, event_handler)
+
+                if DEBUG_EVENT:
+                    print('  %s.%s event (%s) created' % (widget_name, event, event_handler.name), end='')
+
+            if func is not None:
+                event_handler += func
+                if DEBUG_EVENT:
+                    print(', connected to %s' % func, end='')
+
+            if DEBUG_EVENT:
+                print()
+
+            widget.Bind(*args)
+
+            setattr(obj, event_handler.name, event_handler)
+
 
     def str2py(self, value, bare_class=False):
         if value and value[0] == '$':
@@ -277,6 +286,14 @@ class UiBuilder(object):
                 if DEBUG_EVAL:
                     print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, child, child.__class__.__name__))
                 return child
+
+        # this will be evaluated as an event function
+        # if value and value[0] == '@':
+        #     retval = lambda evt: nested_getattr(evt, value[1:])
+        #     resolved = 'event attribute'
+        #     if DEBUG_EVAL:
+        #         print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, retval, retval.__class__.__name__))
+        #     return retval
 
         # look first for something in the view model
         if not_a_class and bare_class:
@@ -364,6 +381,7 @@ class UiBuilder(object):
         except Exception as ex:
             print('ERROR', '[tag: %s]' % node.tag, '[parent: %s]' % parent, 'exception:', ex)
             self.construction_errors.append([ex, node, parent, traceback.format_exc()])
+            raise
             return
 
         if obj is None:
@@ -486,7 +504,15 @@ class UiBuilder(object):
         # one-way bind to property, will update BindValue when event is fired
         if 'Bind' in func.attrib:
             binding, event, transform, receiver = self.str2py(func.attrib['Bind'])
-            self.binding_hook(binding, parent, func.tag, event=event, receiver=receiver, can_update=False)
+            self.binding_hook(
+                binding,
+                parent,
+                func.tag,
+                event=event,
+                receiver=receiver,
+                can_update=False,
+                bind_to=params.get('bind-to')
+            )
         elif call is not None and callable(call):
             args = self.eval_args(func.attrib, exclude=["Name"])
 
@@ -517,7 +543,9 @@ class UiBuilder(object):
                     event=event,
                     transformer=transform,
                     all_args=binding_args,
-                    receiver=receiver)
+                    receiver=receiver,
+                    bind_to=params.get('bind-to')
+                )
 
             name = func.attrib.get("Name")
             if name is not None:
@@ -534,13 +562,14 @@ class UiBuilder(object):
                     func.tag,
                     event=event,
                     transformer=transformer,
-                    receiver=receiver
+                    receiver=receiver,
+                    bind_to=params.get('bind-to')
                 )
             else:
                 setattr(parent, func.tag, set_to)
 
     def binding_hook(self, binding: bind.BindValue, parent, attr_name, event=None, transformer=None, all_args=None, receiver=None,
-        can_update=True):
+        can_update=True, bind_to=None):
         attribute = getattr(parent, attr_name)
         if callable(attribute):
             attr_name = attribute
@@ -566,9 +595,14 @@ class UiBuilder(object):
             ))
 
         if to_widget:
+            # create an effective DynamicValue, so subscribe to all child bind values of the binding
             binding.add_target(parent, attr_name, transform=transformer, arguments=arguments)
+            for v in binding.__dict__.values():
+                if isinstance(v, bind.BindValue):
+                    v.add_target(parent, attr_name, transform=transformer, arguments=arguments)
         if from_widget:
-            binding.add_source(parent, event, attr_name, transform=receiver)
+            binding.add_source(parent, event, attr_name, transform=receiver, bind_to=bind_to)
+
         if can_update:
             binding.update_target(None)
 
@@ -697,7 +731,8 @@ class UiBuilder(object):
         return self.wx_node(node, parent, params, actual_obj=Control.Registry[node.tag])
 
     @Node.filter(lambda n: hasattr(wx, n.tag))
-    def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None):
+    def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None,
+               parentless=False):
         params = params or {}
 
         if actual_obj is not None:
@@ -724,7 +759,10 @@ class UiBuilder(object):
         for k, (b, e, t, r) in bindings.items():
             args[k] = str(b)
 
-        this_obj = class_obj(parent, **args)
+        if parentless:
+            this_obj = class_obj(**args)
+        else:
+            this_obj = class_obj(parent, **args)
         if hasattr(this_obj, 'SetDoubleBuffered'):
             this_obj.SetDoubleBuffered(True)
 
@@ -735,7 +773,8 @@ class UiBuilder(object):
                 name.title(),
                 event=event,
                 transformer=transform,
-                receiver=receiver
+                receiver=receiver,
+                bind_to=params.get('bind-to')
             )
 
         var_name = node.attrib.get('Name', '%s_%d' % (tag or node.tag, self.counter[class_obj]))
@@ -743,7 +782,7 @@ class UiBuilder(object):
         self.debug_names[this_obj] = var_name
         self.children[var_name] = this_obj
 
-        if parent is not None and parent.Sizer is not None:
+        if parent is not None and getattr(parent, 'Sizer', None) is not None:
             sizer_args = {k: v for k, v in getattr(parent.Sizer, 'default_flags', {}).items()}
             widget_args = self.eval_args(style_args, only_args=self.SizerFlags(parent.Sizer))
             overrides = self.eval_args(node.attrib, only_args=self.SizerFlags(parent.Sizer))
@@ -763,8 +802,6 @@ class UiBuilder(object):
                 parent.Sizer.Add(this_obj, s)
             else:
                 parent.Sizer.Add(this_obj, **{k.lower(): v for k, v in sizer_args.items()})
-        else:
-            params['sizer'] = None
 
         return this_obj
 
@@ -812,6 +849,9 @@ class UiBuilder(object):
                 method_name, getattr(self.view_model, method_name, None))
         else:
             method = nested_getattr(method_name)
+
+        if method is None:
+            method = self.str2py(method_name, bare_class=True)
 
         return method
 
@@ -952,6 +992,8 @@ class UiBuilder(object):
         self.counter[wx.Menu] += 1
         self.debug_names[menu] = name
 
+        self._current_menu = menu
+
         for child in node:
             if child.tag in 'Menu':
                 self.create_menu(child, menu, params)
@@ -1032,8 +1074,19 @@ class ViewModel(object):
             Runs any associated on_close events, and then
             destroys the view
         """
+        if evt.CanVeto() and not self.can_close():
+            evt.Veto()
+            return
+
         self.on_close()
         self.view.Destroy()
+
+    def can_close(self):
+        """
+            Called when closing a frame to see if the operation
+            should be cancelled.
+        """
+        return True
 
     def inspect(self):
         """

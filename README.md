@@ -92,19 +92,40 @@ This is done by specifying the name of the view (xml filename). The registered V
 <View view="imported_view.xml" Name="imported" />
 ```
 
-#### MenuBar
 
 #### Component
 
 This defines a custom component.
 
 ```xml
-<Component Name="">
-
-</Component>
+<Component Name=""
 ```
 
 #### Menu
+
+This creates a menu. The creation of the menu items is streamlined from the usual widget creation.
+
+The name of the node can serve as the menu item's label. A event handler (`EVT_MENU`) can be attached
+with the `handler` attribute. Binding a value to the `EVT_MENU` event will not work.
+
+A shortcut can be created automatically for the menu item with the `Shortcut` attribute. This expects
+a modifier and a character.
+
+```xml
+<Menu Name="context_menu">
+    <Open>
+        <Config>
+            <Enabled value="(selections[can_open])" />
+        </Config>
+    </Open>
+    <Clone Shortcut="CTRL-C" handler="clone_active" />
+</Menu>
+```
+
+#### MenuBar
+
+This creates a Menu bar for the frame. Creating the menu items follows the same pattern as with `Menu`.
+
 
 ### Filter Nodes
 
@@ -335,12 +356,13 @@ This example shows the defining of a custom component, that takes two arguments.
 
 Custom components can also be nested within another custom component. Arguments for the nested component do not need to be specified again when defining the component.
 
+
 ### Codebehind
 
-For components that involve more control, it is possible to define a class for the component. This class needs to be decorated with `wxml.Component` decorator.
+For components that require more control, it is possible to define a class for the component. This class needs to be decorated with `wxml.Control` decorator.
 
 ```python
-@wxml.Component
+@wxml.Control
 class EasyChoice(wx.Choice):
     def set_choices(self, choices):
         self.ClearItems()
@@ -386,15 +408,14 @@ collisions with classes.
 
 The following are flags that will echo information about the parsing, evaluation, and construction of an Xml file.
 
-They can be accessed by importing `wxml.builder`.
-
-- `DEBUG_EVAL`: Shows input strings and their evaluated output.
-- `DEBUG_ATTR`: Shows attribute names, their string value, and the evaluated value.
-- `DEBUG_COMPILE`: For each node in the document, shows what `wxml.builder` method was used to process the node.
-- `DEBUG_TIME`: Prints how long the construction process took for each ViewModel built.
-- `DEBUG_BIND`: Shows what bind values are bound to which object, its method or attribute, and the direction of the binding.
-- `DEBUG_ERROR`: When true, the error viewer will display construction errors.
-- `DEBUG_EVENT`: Shows which event handlers were constructed for event bindings, and methods that were subscribed automatically.
+- `wxml.builder.DEBUG_EVAL`: Shows input strings and their evaluated output.
+- `wxml.builder.DEBUG_ATTR`: Shows attribute names, their string value, and the evaluated value.
+- `DEBUG_COMPILEwxml.builder.`: For each node in the document, shows what `wxml.builder` method was used to process the node.
+- `wxml.builder.DEBUG_TIME`: Prints how long the construction process took for each ViewModel built.
+- `wxml.builder.DEBUG_BIND`: Shows what bind values are bound to which object, its method or attribute, and the direction of the binding.
+- `wxml.builder.DEBUG_ERROR`: When true, the error viewer will display construction errors.
+- `wxml.builder.DEBUG_EVENT`: Shows which event handlers were constructed for event bindings, and methods that were subscribed automatically.
+- `wxml.bind.DEBUG_UPDATE`: Shows when a bind value is updated.
 
 
 ## Decorators
@@ -403,9 +424,9 @@ They can be accessed by importing `wxml.builder`.
 
 This decorator associates a `ViewModel` class with an Xml file. The path to the Xml file is relative to the file that the class is defined in.
 
-### wxml.Component
+### wxml.Control
 
-This decorator exposes a class for use as a custom component in an Xml file.
+This decorator informs wxml about a custom wxPython widget, so it can be used in an Xml file.
 
 ### wxml.invoke_ui
 

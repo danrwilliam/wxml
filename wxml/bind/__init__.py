@@ -7,7 +7,8 @@ import enum
 import wx
 import threading
 
-from wxml.decorators import invoke_ui
+from wxml.decorators import invoke_ui, block_ui
+import wxml.builder
 from wxml.event import Event
 
 DEBUG_UPDATE = False
@@ -36,6 +37,11 @@ class BindTarget(object):
         if self.transformer is not None:
             value = self.transformer.to_widget(value)
 
+        if DEBUG_UPDATE:
+            print('   - %s.%s updating with: %s'  % (
+                wxml.builder.UiBuilder.debug_names.get(self.obj, self.obj), self.attr, value)
+            )
+
         if self.is_call and self.bind_key is not None:
             self.arguments[self.bind_key] = value
             self.attr(**self.arguments)
@@ -46,15 +52,21 @@ class BindTarget(object):
 
 
 class BindSource(object):
-    def __init__(self, obj, attr, converter):
+    def __init__(self, obj, attr, converter=None, arguments=None):
         self.obj = obj
         self.attr = attr
+        self.is_call = callable(self.attr)
         self.converter = converter
 
     def receive(self):
-        value = getattr(self.obj, self.attr)
+        if self.is_call:
+            value = self.attr()
+        else:
+            value = getattr(self.obj, self.attr)
+
         if self.converter is not None:
             value = self.converter.from_widget(value)
+
         return value
 
 class DataStore:
@@ -133,7 +145,7 @@ class BindValue(object):
     def add_target(self, obj, attr, transform=None, arguments=None):
         self.targets.append(BindTarget(obj, attr, transform, arguments))
 
-    def add_source(self, obj, event, attr, transform=None):
+    def add_source(self, obj, event, attr, transform=None, bind_to=None):
         source = BindSource(obj, attr, transform)
         source.obj.Bind(event, self.receive)
         self.sources[obj] = source
@@ -165,7 +177,7 @@ class BindValue(object):
             self._value = new
             self.update_target()
 
-    @invoke_ui
+    @block_ui
     def update_target(self, source=None):
         """
             Fires the value_changed event, updates all targets, and then
@@ -174,9 +186,14 @@ class BindValue(object):
             This will always be invoked on the UI thread.
         """
         self.value_changed(self._value)
+
+        if DEBUG_UPDATE:
+            print(' %s update_target with %s (source: %s)' % (
+                self.name or self.__class__.__name__, self._value, source
+            ))
+
         for target in self.targets:
             if target.obj != source:
-                if DEBUG_UPDATE: print('  %s updating %s' % (self.name or self.__class__.__name__, target.obj))
                 target(self._value)
         self.after_changed(self._value)
 
@@ -205,20 +222,29 @@ class ArrayBindValue(BindValue):
         self.index.value = idx
 
 class DynamicValue(BindValue):
-    def __init__(self, *listeners : List[BindValue], update : Callable=None, serialize=False):
-        super().__init__('', serialize=False)
-        self.action = update
+    def __init__(self, *listeners : List[BindValue], update : Callable=None, default='', name=None):
+        super().__init__(default, serialize=False, name=name)
+        self.action = update or self._noop
         for l in listeners:
-            l.add_target(self, self.update)
+            if isinstance(l, BindValue):
+                l.add_target(self, self.update)
+
             for k, v in l.__dict__.items():
                 if isinstance(v, BindValue):
                     v.add_target(self, self.update)
 
+    def _noop(self, changed=None):
+        pass
 
     def update(self, changed=None):
         value = self.action()
-        self.value = value
-        self.after_changed(self.value)
+        self._value = value
+        self.update_target()
+
+    def push_event(self, event):
+        value = self.action(event)
+        self._value = value
+        self.update_target()
 
 class DynamicArrayBindValue(DynamicValue):
     def __init__(self, *listeners : List[BindValue], update:Callable = None, changed_index=None):

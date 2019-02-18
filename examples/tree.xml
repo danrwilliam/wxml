@@ -1,0 +1,26 @@
+<Frame>
+    <Panel>
+        <BoxSizer orient="VERTICAL" Expand="" Proportion="1" />
+
+        <wx.dataview.DataViewListCtrl Name="list" style="DV_MULTIPLE">
+            <Config>
+                <AppendTextColumn label="a" />
+                <AppendTextColumn label="b" />
+
+                <Selections Bind="(selections:EVT_DATAVIEW_SELECTION_CHANGED)" />
+            </Config>
+
+            <EventBindings>
+                <EVT_DATAVIEW_ITEM_CONTEXT_MENU handler="open_context_menu" />
+            </EventBindings>
+        </wx.dataview.DataViewListCtrl>
+    </Panel>
+
+    <Menu Name="context_menu">
+        <Open>
+            <Config>
+                <Enabled value="(selections[can_open])" />
+            </Config>
+        </Open>
+    </Menu>
+</Frame>
