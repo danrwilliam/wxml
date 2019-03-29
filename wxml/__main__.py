@@ -9,6 +9,7 @@ parser.add_argument('--inspect', '-i', action='store_true', help='Opens the wxpy
 parser.add_argument('--design', '-d', action='store_true', help='Watch the named file for changes, and reload if it changes')
 parser.add_argument('--verbose', '-v', action='store_true')
 parser.add_argument('--debug-flags', '-f', type=lambda s: s.split(','), default=[])
+parser.add_argument('--check', '-c', action='store_true', help='Process the xml file but do not show the UI')
 opts = parser.parse_args()
 
 app = wx.App()
@@ -35,9 +36,10 @@ if opts.design:
     watch.thread.start()
 else:
     vm = create(opts.filename)
-    if vm.view is not None:
+    if vm.view is not None and not opts.check:
         vm.view.Show()
         if opts.inspect:
             vm.inspect()
 
-app.MainLoop()
+if not opts.check:
+    app.MainLoop()

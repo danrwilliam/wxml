@@ -12,6 +12,7 @@ import re
 from typing import NamedTuple
 import traceback
 import logging
+import enum
 
 from wxml.event import Event
 from wxml.decorators import invoke_ui
@@ -28,6 +29,13 @@ DEBUG_EVENT = False
 def full_class_path(class_type: type):
     module = '' if class_type.__module__ == "__main__" else '%s.' % class_type.__module__
     return '%s%s' % (module, class_type.__qualname__)
+
+class CustomNodeType(enum.Enum):
+    Control = 0
+    PassParent = 1
+
+class Passthrough(object):
+    pass
 
 class Ui(object):
     Registry = {}
@@ -131,6 +139,10 @@ Node = NodeRegistry()
 NodePost = NodeRegistry()
 
 class UiBuilder(object):
+    """
+        Handles processing an Xml file that will be turned into an interface.
+    """
+
     components = {}
 
     debug_names = {}
@@ -426,6 +438,9 @@ class UiBuilder(object):
 
         use_node = ET.Element('CustomWx')
         use_node.attrib['_class'] = node.tag
+        use_node.attrib['_passthru'] = obj._type
+        use_node.attrib.update(true_node.attrib)
+
         use_node.attrib.update({
             k: v
             for k, v in node.attrib.items()
@@ -461,7 +476,6 @@ class UiBuilder(object):
             del self.overrides
 
         return None
-
 
     @Node.filter(lambda n: hasattr(wx, n.tag) and issubclass(getattr(wx, n.tag), wx.DropTarget))
     def create_drop_target(self, node, parent, params):
@@ -705,6 +719,10 @@ class UiBuilder(object):
 
         return flags
 
+    @Node.node('PaintDC')
+    def paint_dc(self, node, parent, params):
+        pass
+
     @Node.filter(lambda n: hasattr(wx, n.tag) and issubclass(getattr(wx, n.tag), wx.Sizer))
     def wx_create_sizer(self, node, parent, params):
         class_obj = nested_getattr(node.tag, root=wx)
@@ -724,7 +742,10 @@ class UiBuilder(object):
 
     @Node.node('CustomWx')
     def wx_custom(self, node, parent, params):
-        return self.wx_node(node, parent, params, tag=node.attrib.pop('_class'))
+        if node.attrib.pop('_passthru') == CustomNodeType.PassParent:
+            return parent
+        else:
+            return self.wx_node(node, parent, params, tag=node.attrib.pop('_class'))
 
     @Node.filter(lambda n: n.tag in Control.Registry)
     def wx_custom_control(self, node, parent=None, params=None, root=wx, tag=None):
@@ -763,6 +784,7 @@ class UiBuilder(object):
             this_obj = class_obj(**args)
         else:
             this_obj = class_obj(parent, **args)
+
         if hasattr(this_obj, 'SetDoubleBuffered'):
             this_obj.SetDoubleBuffered(True)
 
@@ -931,7 +953,25 @@ class UiBuilder(object):
 
         return bar
 
-    @Node.node('Component')
+    def component_process_vars(self, child):
+        if child.tag in UiBuilder.components:
+            custom_args = list(UiBuilder.components[child.tag]._overrides.items())
+        else:
+            custom_args = set()
+            for n, k in child.attrib.items():
+                if len(k) > 2 and k[1] == ':':
+                    temp = k.replace(':', '' , 1)[1:-1]
+                    t = temp.split('=', 1)
+                    if len(t) > 1:
+                        default = t[1]
+                        child.attrib[n] = k.replace('=%s' % default, '')
+                    else:
+                        default = None
+                    custom_args.add((t[0], default))
+
+        return custom_args
+
+    @Node.node('Component', 'Mixin')
     def register_component(self, node, parent, params):
         name = node.attrib.get('Name')
         parent_type = node.attrib.get('Parent', 'Panel')
@@ -939,37 +979,36 @@ class UiBuilder(object):
         elem = ET.Element(name)
         elem.attrib.update({k: v for k, v in node.attrib.items() if k not in ('Name', 'Parent')})
 
-        if name in Control.Registry:
+        if node.tag == 'Mixin' or parent_type == 'None':
+            custom_obj = Passthrough()
+            custom_obj._type = CustomNodeType.PassParent
+        elif name in Control.Registry:
             custom_obj = Control.Registry[name]
+            custom_obj._type = CustomNodeType.Control
         else:
             parents = [wx_getattr(parent_type)]
             custom_obj = type(name, tuple(parents), {})
+            custom_obj._type = CustomNodeType.Control
 
-        def find_vars(root):
+        def find_vars(root, first=False):
             overrides = []
-            for idx, child in enumerate(root):
-                if child.tag in UiBuilder.components:
-                    vars = UiBuilder.components[child.tag]._overrides
-                else:
-                    vars = set()
-                    for n, k in child.attrib.items():
-                        if len(k) > 2 and k[1] == ':':
-                            temp = k.replace(':', '' , 1)[1:-1]
-                            t = temp.split('=', 1)
-                            if len(t) > 1:
-                                default = t[1]
-                                child.attrib[n] = k.replace('=%s' % default, '')
-                            else:
-                                default = None
-                            vars.add((t[0], default))
 
-                overrides.extend(vars)
+            # get everything on the first root
+            if first:
+                overrides.extend(self.component_process_vars(root))
+
+            for idx, child in enumerate(root):
+                custom_args = self.component_process_vars(child)
+                overrides.extend(custom_args)
                 overrides.extend(find_vars(child))
+
             return overrides
+
+        custom_arguments = find_vars(node, first=True)
 
         overrides = {
             re.split('[:\[]', f)[0].split('.')[0]: d
-            for f, d in find_vars(node)
+            for f, d in custom_arguments
         }
 
         for idx, child in enumerate(node):
@@ -1012,14 +1051,13 @@ class UiBuilder(object):
                 name = child.attrib.get('Label', child.tag)
 
                 menu_item = wx.MenuItem(id=item_id, text=name, kind=item_kind, helpString=item_help)
+                self.debug_names[menu_item] = "%s_on_%s" % (menu_name, child.tag)
 
                 # build menu item before appending, so things like bitmaps work
                 for c in child:
                     self.compile(c, menu_item, params)
 
                 menu.Append(menu_item)
-
-                self.debug_names[menu_item] = "%s_on_%s" % (menu_name, child.tag)
 
                 handler = child.attrib.get('handler')
                 if handler is not None:
@@ -1081,7 +1119,7 @@ class ViewModel(object):
         self.on_close()
         self.view.Destroy()
 
-    def can_close(self):
+    def can_close(self) -> bool:
         """
             Called when closing a frame to see if the operation
             should be cancelled.

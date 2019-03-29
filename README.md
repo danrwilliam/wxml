@@ -95,11 +95,7 @@ This is done by specifying the name of the view (xml filename). The registered V
 
 #### Component
 
-This defines a custom component.
-
-```xml
-<Component Name=""
-```
+This defines a custom component. See the section below for more detail.
 
 #### Menu
 
@@ -126,6 +122,32 @@ a modifier and a character.
 
 This creates a Menu bar for the frame. Creating the menu items follows the same pattern as with `Menu`.
 
+
+#### Mixin
+
+This is similar to a Component except that it operates on a single control.
+
+```xml
+<Mixin Name="TrackDisable">
+    <Config>
+        <!-- UiState is a BindValue available in the ViewModel -->
+        <Enabled value="(UiState)" />
+    </Config>
+</Mixin>
+
+<Mixin Name="Click">
+    <EventBindings>
+        <EVT_BUTTON handler="{:action}" />
+    </EventBindings>
+</Mixin>
+
+<Button label="Click">
+    <TrackDisable />
+    <Click on="{show}" />
+</Button>
+```
+
+The two defined mixins allow common customizations to be encapsulated and reused.
 
 ### Filter Nodes
 
@@ -271,8 +293,6 @@ If the Json file does not exist, then the BindValue will stay with the `value` t
 
 This shows a simple example of linking a StaticText and TextCtrl to the same bind value. Changing the TextCtrl's contents will update the StaticText appropriately. Clicking the button will set the bind value to the empty string, clearing the TextCtrl's content and changing the StaticText's label to the empty string as well. The Gauge is bound to the text BindValue; however, the value is transformed using ```len()``` before applying the update to the Gauge's Value property.
 
-By passing `serialize=True` to the BindValue constructor, the
-
 ```xml
 <Frame>
     <Panel>
@@ -328,6 +348,8 @@ A reuseable component can be defined entirely in Xml, and used anywhere.
 In the component definition, customization can be done like normal with other wx widgets. Here, the customization is flagged by using the colon character to identify the attribute as an construction argument.
 
 The parent class for the component can be specified using the `Parent` attribute (by default it will be `wx.Panel`).
+
+If the parent class is `None`, then no custom type will be created for the component. The parent object will then be passed through to the component's children.
 
 ```xml
 <Component Name="EasyButton">

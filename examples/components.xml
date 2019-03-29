@@ -12,19 +12,33 @@
                 <StaticText label="{:label}" />
                 <TextCtrl value="{:default}" Proportion="1" />
             </BoxSizer>
+        </Component> -->
+
+        <Component Name="LabelTextCtrl2" Parent="None">
+            <StaticText label="{:label}" />
+            <TextCtrl value="{:default}"  />
         </Component>
+
+        <Mixin Name="Disable">
+            <Config>
+                <Enabled value="{:state=1}" />
+            </Config>
+        </Mixin>
     </Namespace>
 
     <Panel>
-        <BoxSizer orient="VERTICAL" Expand="">
-            <LabelTextCtrl label='First' default="Name1" />
-            <LabelTextCtrl label='Last' default="Name2" />
-            <LabelTextCtrl label='Email' default="email@example.com" />
-            <LabelTextCtrl label='Age' default="a number" />
-            <LabelChoice label='Level' />
+        <BoxSizer orient="VERTICAL" Expand="" />
 
-            <Button label="Submit" />
-        </BoxSizer>
+        <LabelTextCtrl label='First' default="Name1" />
+        <LabelTextCtrl label='Last' default="Name2" />
+        <LabelTextCtrl label='Email' default="email@example.com" />
+        <LabelTextCtrl label='Age' default="a number" />
+        <LabelChoice label='Level' />
+        <Button label="Submit">
+            <Disable />
+        </Button>
+
+        <LabelTextCtrl2 label="Test" default="testl" />
     </Panel>
 
     <Config>

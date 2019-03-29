@@ -60,4 +60,4 @@ if __name__ == "__main__":
     wxml.builder.DEBUG_BIND = True
     wxml.builder.DEBUG_EVENT = True
     wxml.builder.DEBUG_ERROR = True
-    wxml.run(TreeView)#, inspect=True)
+    wxml.run(ExampleView)#, inspect=True)
