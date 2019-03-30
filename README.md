@@ -149,6 +149,28 @@ This is similar to a Component except that it operates on a single control.
 
 The two defined mixins allow common customizations to be encapsulated and reused.
 
+#### ToolBar and MainToolBar
+
+Create a toolbar.
+
+MainToolBar will create the tool bar and set it for the top level parent.
+
+Dropdown tools can have their menu set with `menu` attribute.
+
+```xml
+<Menu Name="Export">
+    <Txt label="&amp;Txt" />
+    <Csv label="&amp;Csv" />
+    <Xml label="&amp;Xml" />
+</Menu>
+
+<MainToolBar>
+    <Open id="OPEN" bitmap="wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN)" />
+    <Export bitmap="wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE)" kind="dropdown"
+            menu="{Export}" />
+</MainToolBar>
+```
+
 ### Filter Nodes
 
 This section describes special "filter" nodes, that operate on the current node tag's and try to find an appropriate Python object for it.

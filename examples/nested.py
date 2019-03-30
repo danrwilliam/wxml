@@ -39,6 +39,9 @@ class ExampleView(wxml.ViewModel):
 
         return new_value
 
+    def pressed(self, evt):
+        print('pressed')
+
 @wxml.Ui('tree.xml')
 class TreeView(wxml.ViewModel):
     def initialize(self):
@@ -56,8 +59,9 @@ class TreeView(wxml.ViewModel):
         return len(v) == 1 and self.view.list.GetItemData(v[0]) == 4
 
 if __name__ == "__main__":
-    wxml.bind.DEBUG_UPDATE = True
-    wxml.builder.DEBUG_BIND = True
-    wxml.builder.DEBUG_EVENT = True
-    wxml.builder.DEBUG_ERROR = True
+    # wxml.bind.DEBUG_UPDATE = True
+    # wxml.builder.DEBUG_BIND = True
+    # wxml.builder.DEBUG_EVENT = True
+    # wxml.builder.DEBUG_ERROR = True
+    #wxml.builder.DEBUG_COMPILE = True
     wxml.run(ExampleView)#, inspect=True)

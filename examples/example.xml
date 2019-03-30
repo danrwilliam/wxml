@@ -39,9 +39,38 @@
 
     <MenuBar>
         <Menu Name="File">
-            <MenuItem text="Option" />
+            <Open id="OPEN" />
+            <MenuItem text="Control" />
             <Secondary />
             <MenuItem_2 />
         </Menu>
     </MenuBar>
+
+    <Menu Name="dropdown">
+        <one />
+        <two />
+        <three />
+    </Menu>
+
+    <MainToolBar style="TB_TEXT | TB_DOCKABLE">
+        <Open id="File.Secondary"
+              help='opens a document'
+              bitmap="wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN)" />
+
+        <___ />
+
+        <Dropdown kind="DROPDOWN"
+                  bitmap="wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE)"
+                  menu="{dropdown}"
+                  handler="pressed"
+        />
+
+
+    </MainToolBar>
+
+    <!-- <Config>
+        <CreateToolBar>
+
+        </CreateToolBar>
+    </Config> -->
 </Frame>

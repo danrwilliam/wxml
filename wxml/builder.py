@@ -37,6 +37,12 @@ class CustomNodeType(enum.Enum):
 class Passthrough(object):
     pass
 
+class ImgGroup(object):
+    def add(self, path):
+        key = os.path.splitext(os.path.basename(path))[0]
+        bmp = wx.Bitmap(key)
+        setattr(self, key, wx.Bitmap(key))
+
 class Ui(object):
     Registry = {}
     _imported = set()
@@ -160,6 +166,8 @@ class UiBuilder(object):
         self.accel_table = []
         self.loop_vars = {}
         self.construction_errors = []
+
+        self.menu_ids = {}
 
         try:
             tree = ET.parse(self.filename)
@@ -426,6 +434,10 @@ class UiBuilder(object):
 
         return parent_obj
 
+    @Node.node('ImageResources')
+    def images(self, node, parent, params):
+        pass
+
     @Node.node('Namespace')
     def namespace(self, node, parent, params):
         return 1
@@ -498,9 +510,11 @@ class UiBuilder(object):
                 self.setup_parent(fake, parent, params)
 
     @Node.node('Config', 'parent')
-    def setup_parent(self, root, parent, params):
+    def setup_parent(self, root, parent, params, item=None):
         name = root.attrib.get('Item')
-        if name == 'sizer':
+        if item is not None:
+            parent = item
+        elif name == 'sizer':
             parent = parent.Sizer
 
         for func in root:
@@ -514,6 +528,9 @@ class UiBuilder(object):
 
     def setup_parent_node(self, func, parent, params):
         call = getattr(parent, func.tag)
+
+        if DEBUG_COMPILE:
+            print(' %s.%s' % (parent.__class__.__name__, func.tag))
 
         # one-way bind to property, will update BindValue when event is fired
         if 'Bind' in func.attrib:
@@ -729,7 +746,6 @@ class UiBuilder(object):
         this_obj = class_obj(**self.eval_args(node.attrib, exclude=self.SizerFlags(class_obj)))
 
         sizer_flags = self.eval_args(node.attrib, only_args=self.SizerFlags(class_obj))
-        #params['default-sizer'] = sizer_flags
 
         this_obj.default_flags = sizer_flags
         parent.SetSizer(this_obj)
@@ -816,11 +832,16 @@ class UiBuilder(object):
                 for key, value in sizer_args.items():
                     use_flags = True
                     f = getattr(s, key)
-                    if key.lower() != 'expand':
+
+                    if key.lower() == 'expand':
+                        # empty tuple, backwards compat '' -> ()
+                        if value == () or value:
+                            f()
+                    else:
                         arg = [value] if not isinstance(value, list) and not isinstance(value, tuple) else value
                         s = f(*arg)
-                    else:
-                        s = f()
+                    # else:
+                    #     s = f()
                 parent.Sizer.Add(this_obj, s)
             else:
                 parent.Sizer.Add(this_obj, **{k.lower(): v for k, v in sizer_args.items()})
@@ -1046,12 +1067,13 @@ class UiBuilder(object):
                     kind_string = 'ITEM_' + child.attrib.get('kind', 'NORMAL').upper().lstrip('ITEM_')
                     item_kind = self.str2py(kind_string)
 
-                item_help = child.attrib.get('helpString', '')
+                item_help = child.attrib.get('helpString', child.attrib.get('help', ''))
 
                 name = child.attrib.get('Label', child.tag)
 
                 menu_item = wx.MenuItem(id=item_id, text=name, kind=item_kind, helpString=item_help)
                 self.debug_names[menu_item] = "%s_on_%s" % (menu_name, child.tag)
+                self.menu_ids['%s.%s' % (menu_name, child.tag)] = menu_item.Id
 
                 # build menu item before appending, so things like bitmaps work
                 for c in child:
@@ -1083,8 +1105,102 @@ class UiBuilder(object):
             parent.Append(menu, menu_name)
         else:
             params.pop('menu_parent', None)
-            self.children[menu_name] = menu
+
             self.constructed = menu
+
+        self.children[menu_name] = menu
+
+    @Node.node('MainToolBar')
+    def wx_toolbar(self, node, parent, params):
+        self.create_toolbar(node, parent.GetTopLevelParent(), params, top=True)
+
+    @Node.node('ToolBar')
+    def create_toolbar(self, node, parent, params, top=False):
+        kwargs = self.eval_args(node.attrib)
+
+        bar = wx.ToolBar(parent, **kwargs)
+
+        if top:
+            parent.SetToolBar(bar)
+
+        menu_name = name = node.attrib.get('Name', 'ToolBar_%d' % self.counter[bar.__class__])
+        self.counter[bar.__class__] += 1
+        self.debug_names[bar] = name
+
+        for child in node:
+            if child.tag == 'Config':
+                self.setup_parent(child, bar, params)
+                continue
+
+            tid = child.attrib.get('id', 'ANY')
+            if tid in self.menu_ids:
+                item_id = self.menu_ids[tid]
+            else:
+                id_string = 'ID_' + child.attrib.get('id', 'ANY').upper().lstrip('ID_')
+                item_id = self.str2py(id_string)
+
+            if child.tag.startswith('___'):
+                bar.AddSeparator()
+                continue
+            else:
+                kind_string = 'ITEM_' + child.attrib.get('kind', 'NORMAL').upper().lstrip('ITEM_')
+                item_kind = self.str2py(kind_string)
+
+            item_help = child.attrib.get('helpString', child.attrib.get('help', ''))
+
+            long_help = child.attrib.get('longHelp', '')
+
+            bitmap = self.str2py(child.attrib.get('bitmap', ''))
+            if not isinstance(bitmap, wx.Bitmap):
+                bitmap = wx.Bitmap()
+
+            bitmap_disabled = self.str2py(child.attrib.get('disabled', ''))
+            if not isinstance(bitmap_disabled, wx.Bitmap):
+                bitmap_disabled = wx.NullBitmap
+
+            name = child.attrib.get('Label', child.tag)
+
+            item = bar.AddTool(
+                toolId=item_id,
+                label=name,
+                bitmap=bitmap,
+                bmpDisabled=bitmap_disabled,
+                kind=item_kind,
+                shortHelp=item_help,
+                longHelp=long_help,
+            )
+
+            self.setup_parent(child, item, params)
+
+            if item_kind == wx.ITEM_DROPDOWN:
+                dropdown_menu = child.attrib.get('menu')
+                if dropdown_menu:
+                    b = self.eval_args({'menu': dropdown_menu})
+                    if isinstance(b['menu'], wx.Menu):
+                        bar.SetDropdownMenu(item.Id, b['menu'])
+
+            self.debug_names[item] = "%s_on_%s" % (menu_name, child.tag)
+            self.menu_ids['%s.%s' % (menu_name, child.tag)] = item.Id
+
+            handler = child.attrib.get('handler')
+            if handler is not None:
+                func = self.find_method(handler)
+            else:
+                func = None
+
+            # scut = self.shortcut(child.attrib.get('Shortcut'))
+            # if scut is not None:
+            #     insert_id = menu_item.GetId()
+            #     acc, char = scut
+            #     self.accel_table.append((acc, char, insert_id))
+
+            if bar not in self.events:
+                self.events[bar] = []
+            self.events[bar].append(('EVT_TOOL', func, item))
+
+        #self.setup_parent(node, bar, params, item=bar)
+
+        bar.Realize()
 
 
 class ViewModel(object):
