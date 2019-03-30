@@ -38,10 +38,15 @@ class Passthrough(object):
     pass
 
 class ImgGroup(object):
-    def add(self, path):
-        key = os.path.splitext(os.path.basename(path))[0]
-        bmp = wx.Bitmap(key)
-        setattr(self, key, wx.Bitmap(key))
+    def Add(self, path, name=None):
+        key = name or os.path.splitext(os.path.basename(path))[0]
+        setattr(self, key, wx.Bitmap(path))
+
+    def _lazy_load(self, key, path):
+        if not hasattr(self, key):
+            setattr(self, key, wx.Bitmap(path))
+        return getattr(self, key)
+
 
 class Ui(object):
     Registry = {}
@@ -195,6 +200,9 @@ class UiBuilder(object):
         if hasattr(obj, 'SetAcceleratorTable') and len(self.accel_table):
             obj.SetAcceleratorTable(wx.AcceleratorTable(self.accel_table))
 
+        if hasattr(self, 'Bitmaps'):
+            obj._Bitmaps = self.Bitmaps
+
         UiBuilder.debug_names.update(self.debug_names)
 
         return obj
@@ -231,7 +239,6 @@ class UiBuilder(object):
             widget.Bind(*args)
 
             setattr(obj, event_handler.name, event_handler)
-
 
     def str2py(self, value, bare_class=False):
         if value and value[0] == '$':
@@ -306,6 +313,13 @@ class UiBuilder(object):
                 if DEBUG_EVAL:
                     print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, child, child.__class__.__name__))
                 return child
+
+            bound = nested_getattr(key, self, default=None)#  getattr(self.view_model, key, None)
+            if bound is not None:
+                resolved = 'UiBuilder store'
+                if DEBUG_EVAL:
+                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, bound, bound.__class__.__name__))
+                return bound
 
         # this will be evaluated as an event function
         # if value and value[0] == '@':
@@ -434,9 +448,17 @@ class UiBuilder(object):
 
         return parent_obj
 
-    @Node.node('ImageResources')
+    @Node.node('Bitmaps')
     def images(self, node, parent, params):
-        pass
+        if not hasattr(self, 'Bitmaps'):
+            self.Bitmaps = ImgGroup()
+
+        imgs = self.Bitmaps
+
+        for c in node:
+            if hasattr(imgs, c.tag):
+                args = self.eval_args(c.attrib)
+                getattr(imgs, c.tag)(**args)
 
     @Node.node('Namespace')
     def namespace(self, node, parent, params):
@@ -1132,58 +1154,70 @@ class UiBuilder(object):
                 self.setup_parent(child, bar, params)
                 continue
 
-            tid = child.attrib.get('id', 'ANY')
-            if tid in self.menu_ids:
-                item_id = self.menu_ids[tid]
+            handler = child.attrib.pop('handler', '')
+            enabled = child.attrib.pop('enabled', '')
+
+            if wx_hasattr(child.tag):
+                obj = self.compile(child, bar)
+                item = bar.AddControl(obj)
             else:
-                id_string = 'ID_' + child.attrib.get('id', 'ANY').upper().lstrip('ID_')
-                item_id = self.str2py(id_string)
+                tid = child.attrib.get('id', 'ANY')
+                if tid in self.menu_ids:
+                    item_id = self.menu_ids[tid]
+                else:
+                    id_string = 'ID_' + child.attrib.get('id', 'ANY').upper().lstrip('ID_')
+                    item_id = self.str2py(id_string)
 
-            if child.tag.startswith('___'):
-                bar.AddSeparator()
-                continue
-            else:
-                kind_string = 'ITEM_' + child.attrib.get('kind', 'NORMAL').upper().lstrip('ITEM_')
-                item_kind = self.str2py(kind_string)
+                if child.tag.startswith('___'):
+                    bar.AddSeparator()
+                    continue
+                else:
+                    kind_string = 'ITEM_' + child.attrib.get('kind', 'NORMAL').upper().lstrip('ITEM_')
+                    item_kind = self.str2py(kind_string)
 
-            item_help = child.attrib.get('helpString', child.attrib.get('help', ''))
+                item_help = child.attrib.get('helpString', child.attrib.get('help', ''))
 
-            long_help = child.attrib.get('longHelp', '')
+                long_help = child.attrib.get('longHelp', '')
 
-            bitmap = self.str2py(child.attrib.get('bitmap', ''))
-            if not isinstance(bitmap, wx.Bitmap):
-                bitmap = wx.Bitmap()
+                bitmap = self.str2py(child.attrib.get('bitmap', ''))
+                if not isinstance(bitmap, wx.Bitmap):
+                    bitmap = wx.Bitmap()
 
-            bitmap_disabled = self.str2py(child.attrib.get('disabled', ''))
-            if not isinstance(bitmap_disabled, wx.Bitmap):
-                bitmap_disabled = wx.NullBitmap
+                bitmap_disabled = self.str2py(child.attrib.get('disabled', ''))
+                if not isinstance(bitmap_disabled, wx.Bitmap):
+                    bitmap_disabled = wx.NullBitmap
 
-            name = child.attrib.get('Label', child.tag)
+                name = child.attrib.get('Label', child.tag)
 
-            item = bar.AddTool(
-                toolId=item_id,
-                label=name,
-                bitmap=bitmap,
-                bmpDisabled=bitmap_disabled,
-                kind=item_kind,
-                shortHelp=item_help,
-                longHelp=long_help,
-            )
+                item = bar.AddTool(
+                    toolId=item_id,
+                    label=name,
+                    bitmap=bitmap,
+                    bmpDisabled=bitmap_disabled,
+                    kind=item_kind,
+                    shortHelp=item_help,
+                    longHelp=long_help,
+                )
 
-            self.setup_parent(child, item, params)
+                self.setup_parent(child, item, params)
 
-            if item_kind == wx.ITEM_DROPDOWN:
-                dropdown_menu = child.attrib.get('menu')
-                if dropdown_menu:
-                    b = self.eval_args({'menu': dropdown_menu})
-                    if isinstance(b['menu'], wx.Menu):
-                        bar.SetDropdownMenu(item.Id, b['menu'])
+                if item_kind == wx.ITEM_DROPDOWN:
+                    dropdown_menu = child.attrib.get('menu')
+                    if dropdown_menu:
+                        b = self.eval_args({'menu': dropdown_menu})
+                        if isinstance(b['menu'], wx.Menu):
+                            bar.SetDropdownMenu(item.Id, b['menu'])
+
+            if enabled:
+                inner = ET.Element('EnableTool')
+                inner.attrib['toolId'] = str(item.Id)
+                inner.attrib['enable'] = enabled
+                self.setup_parent_node(inner, bar, params)
 
             self.debug_names[item] = "%s_on_%s" % (menu_name, child.tag)
             self.menu_ids['%s.%s' % (menu_name, child.tag)] = item.Id
 
-            handler = child.attrib.get('handler')
-            if handler is not None:
+            if handler:
                 func = self.find_method(handler)
             else:
                 func = None
