@@ -17,6 +17,7 @@ import enum
 from wxml.event import Event
 from wxml.decorators import invoke_ui
 import wxml.bind as bind
+from wxml.utils import ImgGroup, Resources
 
 DEBUG_EVAL = False
 DEBUG_ATTR = False
@@ -25,6 +26,8 @@ DEBUG_TIME = False
 DEBUG_BIND = False
 DEBUG_ERROR = False
 DEBUG_EVENT = False
+
+AutoImportedPackages = set()
 
 def full_class_path(class_type: type):
     module = '' if class_type.__module__ == "__main__" else '%s.' % class_type.__module__
@@ -36,16 +39,6 @@ class CustomNodeType(enum.Enum):
 
 class Passthrough(object):
     pass
-
-class ImgGroup(object):
-    def Add(self, path, name=None):
-        key = name or os.path.splitext(os.path.basename(path))[0]
-        setattr(self, key, wx.Bitmap(path))
-
-    def _lazy_load(self, key, path):
-        if not hasattr(self, key):
-            setattr(self, key, wx.Bitmap(path))
-        return getattr(self, key)
 
 
 class Ui(object):
@@ -200,9 +193,6 @@ class UiBuilder(object):
         if hasattr(obj, 'SetAcceleratorTable') and len(self.accel_table):
             obj.SetAcceleratorTable(wx.AcceleratorTable(self.accel_table))
 
-        if hasattr(self, 'Bitmaps'):
-            obj._Bitmaps = self.Bitmaps
-
         UiBuilder.debug_names.update(self.debug_names)
 
         return obj
@@ -314,12 +304,12 @@ class UiBuilder(object):
                     print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, child, child.__class__.__name__))
                 return child
 
-            bound = nested_getattr(key, self, default=None)#  getattr(self.view_model, key, None)
-            if bound is not None:
-                resolved = 'UiBuilder store'
+            resource = nested_getattr(key, Resources, default=None)#  getattr(self.view_model, key, None)
+            if resource is not None:
+                resolved = 'Resources'
                 if DEBUG_EVAL:
-                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, bound, bound.__class__.__name__))
-                return bound
+                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, resource, resource.__class__.__name__))
+                return resource
 
         # this will be evaluated as an event function
         # if value and value[0] == '@':
@@ -450,10 +440,10 @@ class UiBuilder(object):
 
     @Node.node('Bitmaps')
     def images(self, node, parent, params):
-        if not hasattr(self, 'Bitmaps'):
-            self.Bitmaps = ImgGroup()
+        if not hasattr(Resources, 'Bitmaps'):
+            Resources.Bitmaps = ImgGroup()
 
-        imgs = self.Bitmaps
+        imgs = Resources.Bitmaps
 
         for c in node:
             if hasattr(imgs, c.tag):
@@ -650,9 +640,10 @@ class UiBuilder(object):
         if to_widget:
             # create an effective DynamicValue, so subscribe to all child bind values of the binding
             binding.add_target(parent, attr_name, transform=transformer, arguments=arguments)
-            for v in binding.__dict__.values():
-                if isinstance(v, bind.BindValue):
-                    v.add_target(parent, attr_name, transform=transformer, arguments=arguments)
+            # for v in binding.__dict__.values():
+            #     if isinstance(v, bind.BindValue):
+            #         v.add_target(parent, attr_name, transform=transformer, arguments=arguments)
+            #         print('to_widget add extra', v, parent, attr_name)
         if from_widget:
             binding.add_source(parent, event, attr_name, transform=receiver, bind_to=bind_to)
 
@@ -791,7 +782,7 @@ class UiBuilder(object):
 
     @Node.filter(lambda n: hasattr(wx, n.tag))
     def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None,
-               parentless=False):
+               parentless=False, skip_sizer=False):
         params = params or {}
 
         if actual_obj is not None:
@@ -842,7 +833,7 @@ class UiBuilder(object):
         self.debug_names[this_obj] = var_name
         self.children[var_name] = this_obj
 
-        if parent is not None and getattr(parent, 'Sizer', None) is not None:
+        if not skip_sizer and parent is not None and getattr(parent, 'Sizer', None) is not None:
             sizer_args = {k: v for k, v in getattr(parent.Sizer, 'default_flags', {}).items()}
             widget_args = self.eval_args(style_args, only_args=self.SizerFlags(parent.Sizer))
             overrides = self.eval_args(node.attrib, only_args=self.SizerFlags(parent.Sizer))
@@ -1235,6 +1226,21 @@ class UiBuilder(object):
         #self.setup_parent(node, bar, params, item=bar)
 
         bar.Realize()
+
+    @Node.filter(lambda n: n.attrib.get('AutoImport', 'false').lower() == 'true')
+    def extra_auto_import(self, node, parent, params):
+        node.attrib.pop('AutoImport')
+
+        module, class_name = node.tag.rsplit('.', 1)
+        importlib.import_module(module)
+        return self.wx_node(
+            node,
+            parent,
+            params,
+            root=sys.modules[module],
+            tag=class_name,
+            skip_sizer=True
+        )
 
 
 class ViewModel(object):

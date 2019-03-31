@@ -247,9 +247,10 @@ class DynamicValue(BindValue):
         self.update_target()
 
 class DynamicArrayBindValue(DynamicValue):
-    def __init__(self, *listeners : List[BindValue], update:Callable = None, changed_index=None):
-        super().__init__(*listeners, update=update)
-        self.index = BindValue(0)
+    def __init__(self, *listeners : List[BindValue], update:Callable = None, changed_index=None,
+                 name:str=None):
+        super().__init__(*listeners, name=name, update=update)
+        self.index = BindValue(0, name='%s.index' % name if name is not None else None)
         self.after_changed += self._set_index
         self.changed_index = changed_index
 
