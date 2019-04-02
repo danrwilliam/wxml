@@ -1,5 +1,13 @@
 <Frame>
 
+    <Bitmaps>
+        <Add path="G$\Downloads\wxPython-demo-4.0.4\demo\bmp_source\bulb1.bmp" mask="BLUE" />
+    </Bitmaps>
+
+    <Icons>
+        <Add path="G$\Data\Icons\Win7 Icon Set\Archive\Archive.ico" />
+    </Icons>
+
     <Config>
         <Title value="(selected_tab[strapped])" />
         <SetInitialSize size="800, 600" />
@@ -65,12 +73,20 @@
                   handler="pressed"
         />
 
+        <Button label="test">
+            <Config>
+                <Bitmap value="{Bitmaps.bulb1}" />
+                <Enabled value="False" />
+            </Config>
+        </Button>
+
+        <Gauge />
 
     </MainToolBar>
 
-    <!-- <Config>
-        <CreateToolBar>
+    <Config>
+        <Icon value="{Icons.Archive}" />
+    </Config>
 
-        </CreateToolBar>
-    </Config> -->
+    <ShowIconStandalone />
 </Frame>

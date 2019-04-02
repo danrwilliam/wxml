@@ -93,6 +93,43 @@ This is done by specifying the name of the view (xml filename). The registered V
 ```
 
 
+#### Bitmaps, Icons
+
+Bitmaps and icons can be loaded in the following way. Once loaded, they can be accessed using
+`wxml.Resources` (a static instance).
+
+Please note that absolute paths on Windows (`G:\path\name`) will need to change to UNC-style paths (`G$\path\name`).
+
+```xml
+<Frame>
+    <Bitmaps>
+        <Add path="button1.bmp" />
+        <Add path="button2.bmp" mask="GREEN" />
+        <AddMany path="buttons_*.bmp" />
+    </Bitmaps>
+
+    <Icons>
+        <Add path="app_icon.icon" />
+    </Icons>
+
+    <Button>
+        <Config>
+            <Bitmap value="{Bitmaps.button1}" />
+        </Config>
+    </Button>
+
+    <Config>
+        <Icon value="{Icons.app_icon}" />
+    </Config>
+</Frame>
+```
+
+#### ShowIconStandalone
+
+This makes the application icon appear separately, if running as a Python script.
+
+Requires `ctypes` module.
+
 #### Component
 
 This defines a custom component. See the section below for more detail.
@@ -155,7 +192,10 @@ Create a toolbar.
 
 MainToolBar will create the tool bar and set it for the top level parent.
 
-Dropdown tools can have their menu set with `menu` attribute.
+Dropdown tools can have their menu set with `menu` attribute. Tools can be enabled or disabled with the
+`enabled` attribute (which calls `EnableTool` with that tool's ID).
+
+Other controls can be added as well.
 
 ```xml
 <Menu Name="Export">
@@ -168,6 +208,8 @@ Dropdown tools can have their menu set with `menu` attribute.
     <Open id="OPEN" bitmap="wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN)" />
     <Export bitmap="wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE)" kind="dropdown"
             menu="{Export}" />
+
+    <Button value="Action" />
 </MainToolBar>
 ```
 

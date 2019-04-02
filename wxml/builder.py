@@ -17,7 +17,7 @@ import enum
 from wxml.event import Event
 from wxml.decorators import invoke_ui
 import wxml.bind as bind
-from wxml.utils import ImgGroup, Resources
+from wxml.utils import ImgGroup, Resources, IconGroup
 
 DEBUG_EVAL = False
 DEBUG_ATTR = False
@@ -450,9 +450,30 @@ class UiBuilder(object):
                 args = self.eval_args(c.attrib)
                 getattr(imgs, c.tag)(**args)
 
+    @Node.node('Icons')
+    def icons(self, node, parent, params):
+        if not hasattr(Resources, 'Icons'):
+            Resources.Icons = IconGroup()
+
+        imgs = Resources.Icons
+
+        for c in node:
+            if hasattr(imgs, c.tag):
+                args = self.eval_args(c.attrib)
+                getattr(imgs, c.tag)(**args)
+
     @Node.node('Namespace')
     def namespace(self, node, parent, params):
         return 1
+
+    @Node.node('ShowIconStandalone')
+    def show_icon_standalone(self, node, parent, params):
+        try:
+            import ctypes
+            myappid = 'python.script.%s' % os.path.basename(sys.modules['__main__'].__file__)
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except ImportError:
+            pass
 
     @Node.filter(lambda n: n.tag in UiBuilder.components)
     def create_component(self, node, parent, params):
