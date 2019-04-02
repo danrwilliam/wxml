@@ -260,7 +260,10 @@ class DynamicArrayBindValue(DynamicValue):
 
     @property
     def selected(self):
-        return self.value[self.index.value]
+        if self.index.value < len(self.value):
+            return self.value[self.index.value]
+        else:
+            return None
 
 class Transformer(object):
     def __init__(self, bind_value: BindValue):

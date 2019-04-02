@@ -70,8 +70,7 @@
         <Dropdown kind="DROPDOWN"
                   bitmap="wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE)"
                   menu="{dropdown}"
-                  handler="pressed"
-        />
+                  handler="pressed" />
 
         <Button label="test">
             <Config>
