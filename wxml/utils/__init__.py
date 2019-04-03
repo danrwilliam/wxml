@@ -15,7 +15,7 @@ class ImgGroup(object):
 
     def AddMany(self, pattern, mask=None):
         for g in glob.glob(pattern):
-            self.Add(g)
+            self.Add(g, mask=mask)
 
     def Add(self, path, name=None, mask=None):
         path = re.sub(r'^([A-Z])\$', r'\1:', path)
