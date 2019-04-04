@@ -231,6 +231,10 @@ class UiBuilder(object):
             setattr(obj, event_handler.name, event_handler)
 
     def str2py(self, value, bare_class=False):
+        """
+            Convert a string value into something useable
+        """
+
         if value and value[0] == '$':
             value = value[1:]
             not_a_class = False
@@ -309,6 +313,13 @@ class UiBuilder(object):
                 resolved = 'Resources'
                 if DEBUG_EVAL:
                     print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, resource, resource.__class__.__name__))
+                return resource
+
+            builder = nested_getattr(key, self, default=None)
+            if builder is not None:
+                resolved = 'UiBuilder'
+                if DEBUG_EVAL:
+                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, builder, builder.__class__.__name__))
                 return resource
 
         # this will be evaluated as an event function
@@ -583,19 +594,30 @@ class UiBuilder(object):
             bindings = {
                 k: v
                 for k, v in args.items()
-                if isinstance(v, tuple) and isinstance(v[0], bind.BindValue)
+                if ((isinstance(v, tuple) and isinstance(v[0], bind.BindValue)) or
+                     isinstance(v, bind.BindValue))
             }
 
             call_args = {k: v for k, v in args.items() if k not in bindings}
             binding_args = {k: v for k, v in call_args.items()}
+            remove_binding = set()
 
-            for k, (b, e, t, v) in bindings.items():
-                if t is not None:
-                    call_args[k] = t.to_widget(b.value)
-                else:
+            for k, b in bindings.items():
+                if isinstance(b, bind.BindValue):
                     call_args[k] = b.value
+                    remove_binding.add(k)
+                else:
+                    (b, e, t, v) = b
+                    if t is not None:
+                        call_args[k] = t.to_widget(b.value)
+                    else:
+                        call_args[k] = b.value
 
                 binding_args[k] = b
+
+            for k in remove_binding:
+                bindings.pop(k)
+
 
             obj = call(**call_args)
 
@@ -632,8 +654,9 @@ class UiBuilder(object):
             else:
                 setattr(parent, func.tag, set_to)
 
-    def binding_hook(self, binding: bind.BindValue, parent, attr_name, event=None, transformer=None, all_args=None, receiver=None,
-        can_update=True, bind_to=None):
+    def binding_hook(self, binding: bind.BindValue, parent, attr_name, event=None,
+                     transformer=None, all_args=None, receiver=None,
+                     can_update=True, bind_to=None):
         attribute = getattr(parent, attr_name)
         if callable(attribute):
             attr_name = attribute
@@ -659,12 +682,7 @@ class UiBuilder(object):
             ))
 
         if to_widget:
-            # create an effective DynamicValue, so subscribe to all child bind values of the binding
             binding.add_target(parent, attr_name, transform=transformer, arguments=arguments)
-            # for v in binding.__dict__.values():
-            #     if isinstance(v, bind.BindValue):
-            #         v.add_target(parent, attr_name, transform=transformer, arguments=arguments)
-            #         print('to_widget add extra', v, parent, attr_name)
         if from_widget:
             binding.add_source(parent, event, attr_name, transform=receiver, bind_to=bind_to)
 
@@ -943,9 +961,13 @@ class UiBuilder(object):
         if parent.Sizer is not None:
             parent.SetSizerAndFit(parent.Sizer)
 
+    @Node.node('Include')
+    def include_xml(self):
+        pass
+
     @Node.node('View')
     @Node.filter(lambda n: n.tag in Ui.Registry)
-    def include_view(self, node, parent, params):
+    def build_included_view(self, node, parent, params):
         if node.tag == 'View':
             filename = node.attrib.get('view')
         else:
@@ -1089,8 +1111,76 @@ class UiBuilder(object):
         self._current_menu = menu
 
         for child in node:
-            if child.tag in 'Menu':
+            if child.tag == 'Menu':
                 self.create_menu(child, menu, params)
+            elif child.tag == 'Config':
+                self.setup_parent(child, menu, params)
+            elif child.tag == 'Radio':
+                args = self.eval_args(child.attrib)
+
+                if isinstance(args['Choices'], bind.BindValue):
+                    choices = args['Choices'].value
+                elif isinstance(args['Choices'], tuple):
+                    choices = args['Choices'][0].value
+                else:
+                    choices = args['Choices']
+
+                if isinstance(args['Choice'], bind.BindValue):
+                    from_ = to_ = lambda v: v
+                    bind_value = args['Choice']
+                elif isinstance(args['Choice'], tuple):
+                    bind_value, _, to_, from_ = args['Choice']
+                else:
+                    from_ = to_ = lambda v: v
+                    bind_value = None
+
+                menu.AppendSeparator()
+
+                ids = {}
+
+                for choice in choices:
+                    label = str(choice)
+                    menu_item = wx.MenuItem(id=item_id, text=label, kind=wx.ITEM_RADIO)
+                    self.menu_ids['%s.radio.%s' % (menu_name, label)] = menu_item.Id
+                    self.debug_names[menu_item] = '%s_on_radio_%s' % (menu_name, child.tag)
+
+                    menu.Append(menu_item)
+                    ids[menu_item] = choice
+
+
+                if bind_value is not None:
+                    def check_if(v):
+                        for k, v in ids.items():
+                            if v == bind_value.value:
+                                k.Check(True)
+                            else:
+                                k.Check(False)
+
+                        return v == choice
+                    def get_val(*evt):
+                        for k, v in ids.items():
+                            if k.IsChecked():
+                                return v
+
+                    for item, choice in ids.items():
+                        to_ = bind.ToWidgetGenericTransformer(bind_value, check_if)
+                        from_ = bind.FromWidgetGenericTransformer(bind_value, get_val)
+
+                        bind_value.add_target(
+                            menu,
+                            check_if,
+                            transform=to_,
+                        )
+                        bind_value.add_source(
+                            menu,
+                            wx.EVT_MENU,
+                            get_val,
+                            transform=from_,
+                            bind_to=item
+                        )
+                    bind_value.update_target()
+
+                menu.AppendSeparator()
             else:
                 id_string = 'ID_' + child.attrib.get('id', 'ANY').upper().lstrip('ID_')
                 item_id = self.str2py(id_string)
@@ -1131,22 +1221,57 @@ class UiBuilder(object):
                 if mp not in self.events:
                     self.events[mp] = []
 
-                self.events[mp].append(('EVT_MENU', func, menu_item))
+                check_bind = child.attrib.get('Check')
+                if item_kind == wx.ITEM_CHECK and check_bind:
+                    binding = self.str2py(check_bind)
+                    #print(binding, isinstance(binding, tuple))
+                    if isinstance(binding, tuple):
+                        binding, evt, to_, from_ = binding
+                        if evt is not None:
+                            binding.add_source(
+                                mp,
+                                evt,
+                                mp.IsChecked,
+                                transform=from_,
+                                bind_to=menu_item,
+                                arguments={'id': menu_item.Id}
+                            )
+                        binding.add_target(
+                            mp,
+                            mp.Check,
+                            transform=to_,
+                            arguments={'id': menu_item.Id, 'check': binding}
+                        )
+                    elif isinstance(binding, bind.BindValue):
+                        menu.Check(menu_item.Id, binding.value)
+                    else:
+                        menu.Check(menu_item.Id, binding)
+                else:
+                    self.events[mp].append(('EVT_MENU', func, menu_item))
 
         if parent is not None and isinstance(parent, wx.Menu):
-            parent.Append(wx_getattr(child.attrib.get('id', 'ID_ANY')), node.attrib.get('Name'), menu)
+            appended = parent.Append(wx_getattr(child.attrib.get('id', 'ID_ANY')), node.attrib.get('Name'), menu)
         elif parent is not None and isinstance(parent, wx.MenuBar):
-            parent.Append(menu, menu_name)
+            appended = parent.Append(menu, menu_name)
         else:
             params.pop('menu_parent', None)
-
             self.constructed = menu
+
+        enabled = node.attrib.pop('Enabled', '')
+        if enabled and isinstance(parent, wx.Menu):
+            self.create_parent_func_binding(parent, 'Enable', params, id=str(appended.Id), enable=enabled)
 
         self.children[menu_name] = menu
 
     @Node.node('MainToolBar')
     def wx_toolbar(self, node, parent, params):
         self.create_toolbar(node, parent.GetTopLevelParent(), params, top=True)
+
+    def create_parent_func_binding(self, parent, function, params, **kwargs):
+        inner = ET.Element(function)
+        inner.attrib.update(kwargs)
+        self.setup_parent_node(inner, parent, params)
+
 
     @Node.node('ToolBar')
     def create_toolbar(self, node, parent, params, top=False):

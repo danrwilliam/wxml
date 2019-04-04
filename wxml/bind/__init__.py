@@ -39,7 +39,9 @@ class BindTarget(object):
 
         if DEBUG_UPDATE:
             print('   - %s.%s updating with: %s'  % (
-                wxml.builder.UiBuilder.debug_names.get(self.obj, self.obj), self.attr, value)
+                wxml.builder.UiBuilder.debug_names.get(self.obj, self.obj),
+                self.attr,
+                value)
             )
 
         if self.is_call and self.bind_key is not None:
@@ -57,10 +59,11 @@ class BindSource(object):
         self.attr = attr
         self.is_call = callable(self.attr)
         self.converter = converter
+        self.arguments = arguments or {}
 
     def receive(self):
         if self.is_call:
-            value = self.attr()
+            value = self.attr(**self.arguments)
         else:
             value = getattr(self.obj, self.attr)
 
@@ -145,9 +148,12 @@ class BindValue(object):
     def add_target(self, obj, attr, transform=None, arguments=None):
         self.targets.append(BindTarget(obj, attr, transform, arguments))
 
-    def add_source(self, obj, event, attr, transform=None, bind_to=None):
-        source = BindSource(obj, attr, transform)
-        source.obj.Bind(event, self.receive)
+    def add_source(self, obj, event, attr, transform=None, bind_to=None, arguments=None):
+        source = BindSource(obj, attr, transform, arguments)
+        if bind_to:
+            b = source.obj.Bind(event, self.receive, bind_to)
+        else:
+            source.obj.Bind(event, self.receive)
         self.sources[obj] = source
 
     def receive(self, evt):

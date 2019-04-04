@@ -1,0 +1,55 @@
+<Frame>
+    <Panel>
+        <BoxSizer orient="VERTICAL" Border="ALL, 10" />
+
+        <CheckBox  label="One">
+            <Config>
+                <Value value="(check_one:EVT_CHECKBOX)" />
+            </Config>
+        </CheckBox>
+        <CheckBox label="Two">
+            <Config>
+                <Value value="(check_two:EVT_CHECKBOX)" />
+            </Config>
+        </CheckBox>
+
+        <StaticText label="(enum[str])" />
+
+        <Menu Name="context">
+            <First>
+                <Config>
+                    <Enabled value="(check_one)" />
+                </Config>
+            </First>
+            <Second>
+                <Config>
+                    <Enabled value="(check_two)" />
+                </Config>
+            </Second>
+
+            <Radio Choices="{choices}" Choice="(enum)" />
+
+            <Menu Name="(enum)" Enabled="(check_one)">
+                <First>
+                    <Config>
+                        <Enabled value="(check_one)" />
+                    </Config>
+                </First>
+                <Second kind="CHECK" Check="(check_two:EVT_MENU)" handler="test" />
+
+
+
+                <Third kind="RADIO" />
+                <Fourth kind="RADIO" />
+                <Another />
+
+                <Fifth kind="RADIO" />
+                <Sixth kind="RADIO" />
+            </Menu>
+        </Menu>
+
+        <EventBindings>
+            <EVT_CONTEXT_MENU handler="show_context" />
+        </EventBindings>
+    </Panel>
+</Frame>
