@@ -1,7 +1,13 @@
+"""
+    Shows how to create menus with dynamically enabled menus and menu items,
+    as well as binding check and radio items.
+"""
+
 import wx
 import wxml
 
 from enum import Enum
+
 
 class MediaType(Enum):
     Movie = 0
@@ -15,11 +21,22 @@ class View(wxml.ViewModel):
         self.check_one = wxml.BindValue(True)
         self.check_two = wxml.BindValue(False)
 
-        self.choices = [v for k, v in MediaType.__members__.items()]
+        self.choices = [v.name for v in MediaType.__members__.values()]
         self.enum = wxml.BindValue(MediaType.Movie)
+        self.enum.after_changed += self.new_value
+        self.no_choice = wxml.BindValue('Third')
+
+    def new_value(self, v):
+        #print(self.enum.value, self.enum.value.__class__)
+        pass
+
+    def enum2name(self, v : MediaType) -> str:
+        return v.name
+
+    def name2enum(self, v : str) -> MediaType:
+        return MediaType[v]
 
     def show_context(self, evt):
-        print('show_context')
         self.view.PopupMenu(self.view.widgets['context'])
 
 if __name__ == "__main__":
@@ -29,4 +46,5 @@ if __name__ == "__main__":
     # # wxml.builder.DEBUG_ATTR = True
     # wxml.builder.DEBUG_BIND = True
     # wxml.bind.DEBUG_UPDATE = True
+
     wxml.run(View)

@@ -144,6 +144,19 @@ with the `handler` attribute. Binding a value to the `EVT_MENU` event will not w
 A shortcut can be created automatically for the menu item with the `Shortcut` attribute. This expects
 a modifier and a character.
 
+*Special Notes about Menus*
+
+Nested menus can have their enabled state bound with the `Enabled` attribute.
+
+For check menu items, the checked state can be bound with the `Check` attribute. It must be done this
+since the checked state is retrieved from the parent with the menu item's id.
+
+Radio options can be generated automatically with the `Radio` tag. The choices can either be provided
+with the `Choices` attribute or created as children of the `Radio` node. The choices are created once,
+and will not be affected later if binding to a bind value. Bind the `Choice` attribute to track the
+selected radio items' state and select the appropriate when the bind value is changed.
+
+
 ```xml
 <Menu Name="context_menu">
     <Open>
@@ -152,6 +165,15 @@ a modifier and a character.
         </Config>
     </Open>
     <Clone Shortcut="CTRL-C" handler="clone_active" />
+    <AutoSave kind="CHECK" Check="(auto_save:EVT_MENU)" />
+    <Menu Name="Formats" Enabled="(auto_save)">
+        <Radio Choice="(save_format)">
+            <Xml />
+            <Txt />
+            <Csv />
+        </Radio>
+    </Menu>
+    <Radio Choices="{radio_choices}" Choice="(choice[enum2name]:EVT_MENU[name2enum])" />
 </Menu>
 ```
 

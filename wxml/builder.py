@@ -1096,6 +1096,83 @@ class UiBuilder(object):
 
         UiBuilder.components[name] = custom_obj
 
+    def auto_radio_menu_items(self, menu, child):
+        args = self.eval_args(child.attrib)
+
+        # use child tag names as choices
+        if 'Choices' not in args:
+            choices = [c.tag for c in child]
+        elif isinstance(args['Choices'], bind.BindValue):
+            choices = args['Choices'].value
+        elif isinstance(args['Choices'], tuple):
+            choices = args['Choices'][0].value
+        else:
+            choices = args['Choices']
+
+        if 'Choice' not in args:
+            bind_value = None
+        elif isinstance(args['Choice'], bind.BindValue):
+            from_ = to_ = lambda v: v
+            bind_value = args['Choice']
+        elif isinstance(args['Choice'], tuple):
+            bind_value, _, to_, from_ = args['Choice']
+        else:
+            from_ = to_ = lambda v: v
+            bind_value = None
+
+        menu.AppendSeparator()
+
+        ids = {}
+
+        menu_name = self.debug_names[menu]
+
+        for choice in choices:
+            label = str(choice)
+            menu_item = wx.MenuItem(id=wx.ID_ANY, text=label, kind=wx.ITEM_RADIO)
+            self.menu_ids['%s.radio.%s' % (menu_name, label)] = menu_item.Id
+            self.debug_names[menu_item] = '%s_on_radio_%s' % (menu_name, child.tag)
+
+            menu.Append(menu_item)
+            ids[menu_item] = choice
+
+        if bind_value is not None:
+            def update_checks(item_ids):
+                value = to_.to_widget(bind_value.value) if to_ else bind_value.value
+                for k, v in item_ids.items():
+                    k.Check(v == value)
+                return 0
+
+            def set_val(item_ids, evt):
+                for k, v in item_ids.items():
+                    if k.IsChecked():
+                        bind_value.value = from_.from_widget(v) if from_ else v
+                        return
+
+            auto_dyn = bind.DynamicValue(
+                bind_value,
+                update=functools.partial(update_checks, ids)
+            )
+            if DEBUG_BIND:
+                print('   Menu radio shadow DynamicValue created for %s' % (
+                    (bind_value.name if bind_value.name else bind_value)
+                ))
+
+            for menu_item, choice in ids.items():
+                menu.Bind(
+                    wx.EVT_MENU,
+                    functools.partial(set_val, ids),
+                    menu_item
+                )
+
+                if DEBUG_BIND:
+                    print('   - radio setter event bound for %s' % (
+                        (bind_value.name if bind_value.name else bind_value)
+                    ))
+
+            bind_value.update_target()
+
+        menu.AppendSeparator()
+
     @Node.node('Menu')
     def create_menu(self, node, parent, params):
         params = params or {}
@@ -1104,11 +1181,13 @@ class UiBuilder(object):
             params['menu_parent'] = parent
 
         menu = wx.Menu()
+
         menu_name = name = node.attrib.get('Name', 'Menu_%d' % self.counter[wx.Menu])
         self.counter[wx.Menu] += 1
         self.debug_names[menu] = name
-
         self._current_menu = menu
+
+        menu_item = None
 
         for child in node:
             if child.tag == 'Menu':
@@ -1116,71 +1195,7 @@ class UiBuilder(object):
             elif child.tag == 'Config':
                 self.setup_parent(child, menu, params)
             elif child.tag == 'Radio':
-                args = self.eval_args(child.attrib)
-
-                if isinstance(args['Choices'], bind.BindValue):
-                    choices = args['Choices'].value
-                elif isinstance(args['Choices'], tuple):
-                    choices = args['Choices'][0].value
-                else:
-                    choices = args['Choices']
-
-                if isinstance(args['Choice'], bind.BindValue):
-                    from_ = to_ = lambda v: v
-                    bind_value = args['Choice']
-                elif isinstance(args['Choice'], tuple):
-                    bind_value, _, to_, from_ = args['Choice']
-                else:
-                    from_ = to_ = lambda v: v
-                    bind_value = None
-
-                menu.AppendSeparator()
-
-                ids = {}
-
-                for choice in choices:
-                    label = str(choice)
-                    menu_item = wx.MenuItem(id=item_id, text=label, kind=wx.ITEM_RADIO)
-                    self.menu_ids['%s.radio.%s' % (menu_name, label)] = menu_item.Id
-                    self.debug_names[menu_item] = '%s_on_radio_%s' % (menu_name, child.tag)
-
-                    menu.Append(menu_item)
-                    ids[menu_item] = choice
-
-
-                if bind_value is not None:
-                    def check_if(v):
-                        for k, v in ids.items():
-                            if v == bind_value.value:
-                                k.Check(True)
-                            else:
-                                k.Check(False)
-
-                        return v == choice
-                    def get_val(*evt):
-                        for k, v in ids.items():
-                            if k.IsChecked():
-                                return v
-
-                    for item, choice in ids.items():
-                        to_ = bind.ToWidgetGenericTransformer(bind_value, check_if)
-                        from_ = bind.FromWidgetGenericTransformer(bind_value, get_val)
-
-                        bind_value.add_target(
-                            menu,
-                            check_if,
-                            transform=to_,
-                        )
-                        bind_value.add_source(
-                            menu,
-                            wx.EVT_MENU,
-                            get_val,
-                            transform=from_,
-                            bind_to=item
-                        )
-                    bind_value.update_target()
-
-                menu.AppendSeparator()
+                self.auto_radio_menu_items(menu, child)
             else:
                 id_string = 'ID_' + child.attrib.get('id', 'ANY').upper().lstrip('ID_')
                 item_id = self.str2py(id_string)
@@ -1224,7 +1239,6 @@ class UiBuilder(object):
                 check_bind = child.attrib.get('Check')
                 if item_kind == wx.ITEM_CHECK and check_bind:
                     binding = self.str2py(check_bind)
-                    #print(binding, isinstance(binding, tuple))
                     if isinstance(binding, tuple):
                         binding, evt, to_, from_ = binding
                         if evt is not None:

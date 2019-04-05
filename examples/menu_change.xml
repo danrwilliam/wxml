@@ -13,7 +13,16 @@
             </Config>
         </CheckBox>
 
+        <Choice>
+            <Config>
+                <Items value="{choices}" />
+                <StringSelection value="(enum[enum2name]:EVT_CHOICE[name2enum])" />
+            </Config>
+        </Choice>
+
         <StaticText label="(enum[str])" />
+
+        <StaticText label="(no_choice)" />
 
         <Menu Name="context">
             <First>
@@ -27,20 +36,22 @@
                 </Config>
             </Second>
 
-            <Radio Choices="{choices}" Choice="(enum)" />
+            <Radio Choices="{choices}" Choice="(enum[enum2name]:EVT_MENU[name2enum])" />
 
-            <Menu Name="(enum)" Enabled="(check_one)">
+            <Radio Choice="(no_choice:EVT_MENU)">
+                <Third />
+                <Fourth />
+            </Radio>
+
+            <Menu Name="Enum" Enabled="(check_one)">
                 <First>
                     <Config>
                         <Enabled value="(check_one)" />
                     </Config>
                 </First>
-                <Second kind="CHECK" Check="(check_two:EVT_MENU)" handler="test" />
+                <Second kind="CHECK" Check="(check_two:EVT_MENU)" />
 
 
-
-                <Third kind="RADIO" />
-                <Fourth kind="RADIO" />
                 <Another />
 
                 <Fifth kind="RADIO" />
