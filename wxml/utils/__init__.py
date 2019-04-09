@@ -22,12 +22,13 @@ class ImgGroup(object):
         key = name or os.path.splitext(os.path.basename(path))[0]
         key = key.replace(' ', '_')
 
-        bmp = wx.Bitmap(path)
-        if mask is not None:
-            mk = wx.Mask(bmp, mask)
-            bmp.SetMask(mk)
+        if not hasattr(self, key):
+            bmp = wx.Bitmap(path)
+            if mask is not None:
+                mk = wx.Mask(bmp, mask)
+                bmp.SetMask(mk)
 
-        setattr(self, key, bmp)
+            setattr(self, key, bmp)
 
     add = Add
     add_many = AddMany
@@ -42,9 +43,9 @@ class IconGroup(object):
         key = name or os.path.splitext(os.path.basename(path))[0]
         key = key.replace(' ', '_')
 
-        icon = ico = wx.Icon(path)
-
-        setattr(self, key, icon)
+        if not hasattr(self, key):
+            icon = ico = wx.Icon(path)
+            setattr(self, key, icon)
 
     add = Add
     add_many = AddMany

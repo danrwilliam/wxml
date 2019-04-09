@@ -73,13 +73,14 @@ class BindSource(object):
         return value
 
 class DataStore:
+    Directory = ''
     store = None
     _map = {}
     counter = 0
 
     @classmethod
     def _store_file(cls):
-        filename = '%s.store.json' % os.path.splitext(os.path.basename(sys.modules['__main__'].__file__))[0]
+        filename = os.path.join(DataStore.Directory, '%s.store.json' % os.path.splitext(os.path.basename(sys.modules['__main__'].__file__))[0])
         return filename
 
     @classmethod
