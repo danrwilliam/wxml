@@ -213,11 +213,15 @@ class ArrayBindValue(BindValue):
             name='%s-sel' % name if name is not None else None,
             serialize=serialize
         )
+        self.item = wxml.DynamicValue(self, update=self._update_selection)
         self.after_changed += self._set_index
 
     def _set_index(self, e):
         self.index.value = self.index.value
         self.index.update_target()
+
+    def _update_selection(self):
+        return self.value[self.index.value]
 
     @property
     def selected(self):
@@ -258,8 +262,12 @@ class DynamicArrayBindValue(DynamicValue):
                  name:str=None):
         super().__init__(*listeners, name=name, update=update)
         self.index = BindValue(0, name='%s.index' % name if name is not None else None)
+        self.item = DynamicValue(self, update=self._update_selected)
         self.after_changed += self._set_index
         self.changed_index = changed_index
+
+    def _update_selected(self):
+        return self.value[self.index.value]
 
     def _set_index(self, e):
         self.index.value = self.index.value if self.changed_index is None else self.changed_index
