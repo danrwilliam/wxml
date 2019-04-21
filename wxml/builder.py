@@ -247,7 +247,6 @@ class UiBuilder(object):
                 # auto member access with .
                 if to_widget.startswith('.'):
                     prop = to_widget.lstrip('.').split('-', 1)
-                    print(prop)
                     if len(prop) > 1:
                         prop, conv = prop
                         converter_func = self.str2py(conv, bare_class=True)
