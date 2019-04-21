@@ -344,6 +344,13 @@ Customer transformers shall inherit from the ```bind.Transformer``` class. The B
 
 This example ties a Gauge's value to the length of a string. Editing the contents of the TextCtrl would change the size of the gauge.
 
+Additionally, a shortcut for attribute access of a bind value is available. This will internally use the `bind.ToWidgetProperty` transformer. This is done by prepending the property name with a `.`.
+
+```xml
+<StaticText label="(directory[.full_path])" />
+```
+
+
 ### DynamicValue
 
 You may want to compute a value based on the values of other BindValues, and update that property automatically when one of its dependencies changes.

@@ -18,6 +18,7 @@ from wxml.event import Event
 from wxml.decorators import invoke_ui
 import wxml.bind as bind
 from wxml.utils import ImgGroup, Resources, IconGroup
+from wxml.attr import nested_getattr, nested_hasattr
 
 DEBUG_EVAL = False
 DEBUG_ATTR = False
@@ -88,28 +89,6 @@ def wx_getattr(value):
 
 def wx_hasattr(value):
     return wx_getattr(value) is not None
-
-def nested_getattr(name, root=None, default=None):
-    tokens = name.split('.')
-    if root is None:
-        try:
-            obj = sys.modules[tokens[0]]
-        except KeyError:
-            return None
-        start = 1
-    else:
-        obj = root
-        start = 0
-
-    for t in tokens[start:]:
-        if not hasattr(obj, t):
-            return default
-        obj = getattr(obj, t)
-
-    return obj
-
-def nested_hasattr(name):
-    return nested_getattr(name) is not None
 
 class NodeRegistry(dict):
     def __init__(self):
@@ -244,7 +223,7 @@ class UiBuilder(object):
         retval = value
         resolved = 'str'
 
-        bind_expr = r'^\(([_A-Za-z0-9\.]+)(?:\[([_A-Za-z0-9\.]+)\])?(?:\:(EVT_[A-Z_]+)(?:\[([_A-Za-z0-9\.]+)\])?)?\)$'
+        bind_expr = r'^\(([_A-Za-z0-9\.]+)(?:\[([_A-Za-z0-9\.-]+)\])?(?:\:(EVT_[A-Z_]+)(?:\[([_A-Za-z0-9\.]+)\])?)?\)$'
         tokens = re.search(bind_expr, value)
 
         # one or two way binding
@@ -257,8 +236,28 @@ class UiBuilder(object):
             transform = None
             receiver = None
 
+            binding = self.str2py(key, bare_class=True)
+
+            if binding is None and hasattr(self, 'overrides'):
+                t, *k = key.split('.')
+                k = '.'.join(k)
+                binding = nested_getattr(k, self.overrides.get(t))
+
             if to_widget is not None:
-                transform = self.str2py(to_widget, bare_class=True)
+                # auto member access with .
+                if to_widget.startswith('.'):
+                    prop = to_widget.lstrip('.').split('-', 1)
+                    print(prop)
+                    if len(prop) > 1:
+                        prop, conv = prop
+                        converter_func = self.str2py(conv, bare_class=True)
+                    else:
+                        prop = prop[0]
+                        converter_func = str
+
+                    transform = bind.ToWidgetProperty(binding, prop, converter_func)
+                else:
+                    transform = self.str2py(to_widget, bare_class=True)
                 if not isinstance(transform, bind.Transformer):
                     transform = bind.ToWidgetGenericTransformer(None, transform)
 
@@ -267,13 +266,6 @@ class UiBuilder(object):
                 receiver = self.str2py(from_widget, bare_class=True)
                 if not isinstance(receiver, bind.Transformer):
                     receiver = bind.FromWidgetGenericTransformer(None, receiver)
-
-            binding = self.str2py(key, bare_class=True)
-
-            if binding is None and hasattr(self, 'overrides'):
-                t, *k = key.split('.')
-                k = '.'.join(k)
-                binding = nested_getattr(k, self.overrides.get(t))
 
             if binding is not None and isinstance(binding, bind.BindValue):
                 return binding, event, transform, receiver

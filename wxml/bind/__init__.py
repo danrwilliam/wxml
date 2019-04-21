@@ -10,6 +10,7 @@ import threading
 from wxml.decorators import invoke_ui, block_ui
 import wxml.builder
 from wxml.event import Event
+from wxml.attr import nested_getattr, nested_hasattr
 
 DEBUG_UPDATE = False
 
@@ -304,3 +305,20 @@ class FromWidgetGenericTransformer(Transformer):
 
     def from_widget(self, value):
         return self.converter(value)
+
+class ToWidgetProperty(ToWidgetGenericTransformer):
+    def __init__(self, bind_value, prop_name, conv=str):
+        self._property = prop_name
+        self._conv = conv
+        super().__init__(bind_value, self.get_property)
+
+    def get_property(self, value):
+        attribute = nested_getattr(self._property, root=self.bound.value)
+        if attribute is None:
+            val = ''
+        elif callable(attribute):
+            val = attribute()
+        else:
+            val = attribute
+
+        return self._conv(val)
