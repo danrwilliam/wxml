@@ -68,12 +68,16 @@ class DesignThread(object):
 
         while not self.closed.is_set():
             if any(os.stat(f).st_mtime > watch_files[f] for f in watch_files):
+                wxml.builder.Ui.Registry.clear()
+                wxml.builder.Control.Registry.clear()
+
+                self.recreate_done.clear()
+                self.recreate()
+                self.recreate_done.wait()
+
                 watch_files = {
                     f.filename: os.stat(f.filename).st_mtime
                     for f in list(wxml.builder.Ui.Registry.values()) + [Main]
                 }
-                self.recreate_done.clear()
-                self.recreate()
-                self.recreate_done.wait()
 
             self.closed.wait(timeout=1)

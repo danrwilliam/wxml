@@ -405,10 +405,10 @@ class UiBuilder(object):
         try:
             obj = action(self, node, parent, params)
         except Exception as ex:
-            print('ERROR', '[tag: %s]' % node.tag, '[parent: %s]' % parent, 'exception:', ex)
+            if DEBUG_ERROR:
+                print('ERROR', '[tag: %s]' % node.tag, '[parent: %s]' % parent, 'exception:', ex)
             self.construction_errors.append([ex, node, parent, traceback.format_exc()])
             raise
-            return
 
         if obj is None:
             return
@@ -418,7 +418,7 @@ class UiBuilder(object):
             params.update(params2)
         else:
             parent_obj = obj
-            params = {}
+            params = params or {}
 
         if parent_obj is None:
             return
@@ -496,10 +496,13 @@ class UiBuilder(object):
         for c in true_node:
             use_node.append(c)
 
-        children = [c for c in node]
+        parent_nodes = use_node.findall('.//*[@ChildParent]')
+        for p in parent_nodes:
+            if p.attrib.get('ChildParent', 'False').lower() in ('', 'true'):
+                parent_node = p
 
-        for child in children:
-            use_node.append(child)
+        for child in node:
+            parent_node.append(child)
 
         if not hasattr(self, 'overrides'):
             overrides = {
@@ -513,11 +516,12 @@ class UiBuilder(object):
             within = True
 
         obj = self.compile(use_node, parent, params)
+
+        for child in node:
+            parent_node.remove(child)
+
         if isinstance(obj, (wx.Panel, wx.Frame)):
             self.wx_setsizer(use_node, obj, params)
-
-        for child in children:
-            use_node.remove(child)
 
         if not within:
             del self.overrides
@@ -766,6 +770,9 @@ class UiBuilder(object):
             'Border',
         ]
     }
+    ARGLESS_SIZER = set(
+        ['Expand', 'Shaped', 'Top', 'Right', 'Left', 'Center', 'Bottom', 'Centre', 'ReserveSpaceEvenIfHidden']
+    )
 
     def SizerFlags(self, parent):
         if parent.__class__ in UiBuilder.SIZER_FLAGS_DICT:
@@ -827,8 +834,8 @@ class UiBuilder(object):
 
         style_args = getattr(self, 'style_args', {}).get(tag or node.tag, {})
 
-        args = self.eval_args(style_args, exclude=self.SizerFlags(parent) + ['Name'])
-        args.update(self.eval_args(node.attrib, exclude=self.SizerFlags(parent) + ['Name']))
+        args = self.eval_args(style_args, exclude=self.SizerFlags(parent) + ['Name', 'ChildParent'])
+        args.update(self.eval_args(node.attrib, exclude=self.SizerFlags(parent) + ['Name', 'ChildParent']))
 
         bindings = {
             k: v
@@ -870,13 +877,17 @@ class UiBuilder(object):
             sizer_args.update(widget_args)
             sizer_args.update(overrides)
 
+            # shaped wins over proportion
+            if 'Shaped' in sizer_args:
+                sizer_args.pop('Proportion', None)
+
             if all(hasattr(wx.SizerFlags, f) for f in sizer_args):
                 s = wx.SizerFlags()
                 for key, value in sizer_args.items():
                     use_flags = True
                     f = getattr(s, key)
 
-                    if key.lower() == 'expand':
+                    if key in self.ARGLESS_SIZER:
                         # empty tuple, backwards compat '' -> ()
                         if value == () or value:
                             f()

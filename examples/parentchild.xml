@@ -1,0 +1,26 @@
+<Frame>
+    <Component Name="Group">
+        <BoxSizer orient="VERTICAL" Expand="" Border="ALL, 3" />
+        <Panel>
+            <BoxSizer  Border="ALL, 5" Expand=""  />
+            <StaticText label="{:label}"  />
+            <Panel Proportion="1">
+                <BoxSizer orient="VERTICAL" Expand="" Center="" Align="ALIGN_CENTER_HORIZONTAL" />
+                <StaticLine />
+            </Panel>
+        </Panel>
+        <Panel ChildParent="">
+            <BoxSizer orient="VERTICAL" />
+        </Panel>
+        <StaticLine />
+    </Component>
+
+    <Panel>
+        <BoxSizer orient="VERTICAL" Expand="" />
+
+        <Group label="This is a label">
+            <Button label="Action" />
+        </Group>
+
+    </Panel>
+</Frame>

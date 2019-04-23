@@ -1,9 +1,19 @@
 <Frame>
     <Namespace>
+        <Mixin Name="Disable">
+            <Config>
+                <Enabled value="{:state=0}" />
+            </Config>
+        </Mixin>
+
         <Component Name="LabelChoice" Parent="Panel">
             <BoxSizer Expand="" Align="CENTER" Border="ALL, 2">
-                <StaticText label="{:label}" />
-                <Choice Proportion="1" />
+                <StaticText label="{:label}">
+                    <Disable />
+                </StaticText>
+                <Choice Proportion="1">
+                    <Disable />
+                </Choice>
             </BoxSizer>
         </Component>
 
@@ -19,11 +29,6 @@
             <TextCtrl value="{:default}"  />
         </Component>
 
-        <Mixin Name="Disable">
-            <Config>
-                <Enabled value="{:state=1}" />
-            </Config>
-        </Mixin>
     </Namespace>
 
     <Panel>
