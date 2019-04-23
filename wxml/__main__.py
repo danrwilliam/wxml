@@ -1,5 +1,7 @@
 import argparse
 import os
+import sys
+
 import wx
 import wxml
 
@@ -31,9 +33,12 @@ if opts.design:
     watch = DesignThread(
         opts.filename,
         create=create,
-        error=wxml.ErrorViewModel.instance if opts.verbose else None
+        error=wxml.ErrorViewModel.instance
     )
-    watch.thread.start()
+    if watch.ok:
+        watch.thread.start()
+    else:
+        sys.exit(1)
 else:
     vm = create(opts.filename)
     if vm.view is not None and not opts.check:

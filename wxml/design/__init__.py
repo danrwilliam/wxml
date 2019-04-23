@@ -2,6 +2,7 @@ import wx
 import threading
 import os
 import time
+import traceback
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
@@ -17,14 +18,18 @@ class DesignThread(object):
         self.builder = create
 
         self.error_vm = error or (lambda: None)
+        self._error = True
 
         self._hidden = wx.Frame(None, wx.ID_ANY)
 
-        self.recreate_done = threading.Event()
-
-        self.recreate()
         self.thread = threading.Thread(target=self.watch)
 
+        self.recreate_done = threading.Event()
+        self.recreate()
+
+    @property
+    def ok(self):
+        return self._error
 
     def close(self, evt: wx.Event):
         evt.StopPropagation()
@@ -32,7 +37,8 @@ class DesignThread(object):
     def cleanup(self):
         self.closed.set()
         self._hidden.Close()
-        self.thread.join()
+        if self.thread.is_alive():
+            self.thread.join()
 
     @invoke_ui
     def recreate(self):
@@ -44,16 +50,35 @@ class DesignThread(object):
         if vm is not None:
             vm.clear()
 
-        self.view = self.builder(self.filename)
-        self.view.on_close += self.cleanup
+        try:
+            self.view = self.builder(self.filename)
+            self.view.on_close += self.cleanup
+        except Exception as ex:
+            dlg = wx.MessageDialog(None, '{ex.__class__.__name__} occured while building\n\n{ex}\n\n{tb}'.format(
+                    ex=ex,
+                    tb=traceback.format_exc()
+                ),
+                'Exception: failed to build',
+                style=wx.ICON_ERROR | wx.OK | wx.CANCEL
+            )
+            res = dlg.ShowModal()
+            dlg.Destroy()
 
-        if self.view.view is not None:
-            self.view.view.Show()
+            if res == wx.ID_CANCEL:
+                self.recreate_done.set()
+                self.cleanup()
+                self._error = False
+                return
 
-        if hasattr(self, 'position'):
-            self.view.view.Position = self.position
+            self.view = None
+        else:
+            self._error = True
+            if self.view.view is not None:
+                self.view.view.Show()
+                if hasattr(self, 'position'):
+                    self.view.view.Position = self.position
 
-        self.recreate_done.set()
+            self.recreate_done.set()
 
     def watch(self):
         import collections

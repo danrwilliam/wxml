@@ -19,7 +19,10 @@
         <BoxSizer orient="VERTICAL" Expand="" />
 
         <Group label="This is a label">
-            <Button label="Action" />
+            <Button label="Action">
+                <Config>
+                </Config>
+            </Button>
         </Group>
 
     </Panel>

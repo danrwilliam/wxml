@@ -10,6 +10,12 @@
         </wx.dataview.DataViewListCtrl>
 
         <Panel Name="detail">
+            <BoxSizer orient="VERTICAL" Proportion="1" Expand="" />
+            <Button label="Delete All">
+                <EventBindings>
+                    <EVT_BUTTON handler="delete_all" />
+                </EventBindings>
+            </Button>
             <BoxSizer Expand="" Border="ALL, 5" orient="VERTICAL">
                 <StaticText label="Exception Detail" />
                 <TextCtrl style="TE_MULTILINE | TE_AUTO_URL"

@@ -15,7 +15,7 @@ import logging
 import enum
 
 from wxml.event import Event
-from wxml.decorators import invoke_ui
+from wxml.decorators import invoke_ui, block_ui
 import wxml.bind as bind
 from wxml.utils import ImgGroup, Resources, IconGroup
 from wxml.attr import nested_getattr, nested_hasattr
@@ -1562,10 +1562,13 @@ class ErrorViewModel(ViewModel):
         if self.err_list.SelectedRow == -1:
             self.err_list.SelectRow(0)
 
-    @invoke_ui
+    @block_ui
     def clear(self):
         self.err_list.DeleteAllItems()
         self.msg_detail = []
+
+    def delete_all(self, evt):
+        self.clear()
 
 def run(view_model: ViewModel, *args, inspect=False, **kwargs):
     """
