@@ -500,6 +500,9 @@ class UiBuilder(object):
         for p in parent_nodes:
             if p.attrib.get('ChildParent', 'False').lower() in ('', 'true'):
                 parent_node = p
+                break
+        else:
+            parent_node = use_node
 
         for child in node:
             parent_node.append(child)
