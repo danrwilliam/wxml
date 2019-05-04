@@ -21,7 +21,7 @@ class ImgGroup(object):
     def Add(self, path, name=None, mask=None):
         path = re.sub(r'^([A-Z])\$', r'\1:', path)
         if not os.path.isabs(path):
-            path = os.path.join(os.path.dirname(sys.modules['__main__'].__file__, path))
+            path = os.path.join(os.path.dirname(sys.modules['__main__'].__file__), path)
 
         key = name or os.path.splitext(os.path.basename(path))[0]
         key = key.replace(' ', '_')
@@ -45,7 +45,7 @@ class IconGroup(object):
     def Add(self, path, name=None):
         path = re.sub(r'^([A-Z])\$', r'\1:', path)
         if not os.path.isabs(path):
-            path = os.path.join(os.path.dirname(sys.modules['__main__'].__file__, path))
+            path = os.path.join(os.path.dirname(sys.modules['__main__'].__file__), path)
 
         key = name or os.path.splitext(os.path.basename(path))[0]
         key = key.replace(' ', '_')
