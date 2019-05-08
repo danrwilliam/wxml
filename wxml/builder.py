@@ -137,6 +137,7 @@ class UiBuilder(object):
     def build(self, view_model, parent=None, sizer_flags=None):
         self.view_model = view_model
 
+        self.models = {}
         self.debug_names = {}
         self.events = {}
         self.children = {}
@@ -162,9 +163,12 @@ class UiBuilder(object):
         if obj is None:
             obj = getattr(self, 'constructed')
         obj.widgets = {}
+        obj.models = {}
 
         for widget, name in self.debug_names.items():
             obj.widgets[name] = widget
+        for name, model in self.models.items():
+            obj.models[name] = model
 
         for widget, events in self.events.items():
             self.build_widget_events(obj, widget, events)
@@ -389,7 +393,9 @@ class UiBuilder(object):
             if len(value) > 2 and value[1] == ':':
                 value  = value[0] + value[2:]
 
-            if key not in exclude and (prefix is None or key.startswith(prefix)):
+            if (key not in exclude and
+                (prefix is None or key.startswith(prefix)) and
+                (excl_prefix is None or not any(key.startswith(e) for e in excl_prefix))):
                 evaled[key] = self.str2py(value)
                 if DEBUG_ATTR:
                     print('   Attr={0} Input="{1}" Value={2}'.format(key, value, evaled[key]))
@@ -822,7 +828,7 @@ class UiBuilder(object):
 
     @Node.filter(lambda n: hasattr(wx, n.tag))
     def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None,
-               parentless=False, skip_sizer=False):
+                parentless=False, skip_sizer=False):
         params = params or {}
 
         if actual_obj is not None:
@@ -838,7 +844,11 @@ class UiBuilder(object):
         style_args = getattr(self, 'style_args', {}).get(tag or node.tag, {})
 
         args = self.eval_args(style_args, exclude=self.SizerFlags(parent) + ['Name', 'ChildParent'])
-        args.update(self.eval_args(node.attrib, exclude=self.SizerFlags(parent) + ['Name', 'ChildParent']))
+        args.update(self.eval_args(
+            node.attrib,
+            excl_prefix=["Config.", 'EventBindings.'],
+            exclude=self.SizerFlags(parent) + ['Name', 'ChildParent']
+        ))
 
         bindings = {
             k: v
@@ -902,6 +912,29 @@ class UiBuilder(object):
                 parent.Sizer.Add(this_obj, s)
             else:
                 parent.Sizer.Add(this_obj, **{k.lower(): v for k, v in sizer_args.items()})
+
+        # Config. attributes
+        auto_config = ET.Element('Config')
+        idx = len('Config.')
+        for k in node.attrib:
+            if k.startswith('Config.'):
+                elem = k[idx:]
+                elem_node = ET.Element(elem)
+                elem_node.attrib['value'] = node.attrib[k]
+                auto_config.append(elem_node)
+        self.setup_parent(auto_config, this_obj, params)
+
+        # EventBindings. attributes
+        auto_config = ET.Element('EventBindings')
+        idx = len('EventBindings.')
+        for k in node.attrib:
+            if k.startswith('EventBindings.'):
+                elem = k[idx:]
+                elem_node = ET.Element(elem)
+                elem_node.attrib['handler'] = node.attrib[k]
+                auto_config.append(elem_node)
+        self.set_up_events(auto_config, this_obj, params)
+
 
         return this_obj
 
@@ -994,6 +1027,7 @@ class UiBuilder(object):
         name = node.attrib.get('Name', '%s_%d' % (constructed.__class__.__name__, self.counter[constructed.__class__]))
         self.counter[constructed.__class__] += 1
 
+        self.models[name] = constructed
         self.debug_names[constructed.view] = name
         self.children[name] = constructed.view
 

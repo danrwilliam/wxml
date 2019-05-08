@@ -2,7 +2,7 @@
     <Panel>
         <BoxSizer orient="VERTICAL" Border="ALL, 10" />
 
-        <CheckBox  label="One">
+        <CheckBox label="One">
             <Config>
                 <Value value="(check_one:EVT_CHECKBOX)" />
             </Config>
@@ -13,18 +13,21 @@
             </Config>
         </CheckBox>
 
-        <Choice>
-            <Config>
+        <Choice Config.Items="{choices}"
+                Config.StringSelection="(enum[.name]:EVT_CHOICE[name2enum])" />
+            <!-- <Config>
                 <Items value="{choices}" />
                 <StringSelection value="(enum[.name]:EVT_CHOICE[name2enum])" />
             </Config>
-        </Choice>
+        </Choice> -->
 
         <StaticText label="(enum[.name.upper])" />
 
         <StaticText label="(enum[.__class__.__name__-str.upper])" />
 
         <StaticText label="(no_choice)" />
+
+        <Button label="$Button" EventBindings.EVT_BUTTON="btn_pressed" />
 
         <Menu Name="context">
             <First>

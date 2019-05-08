@@ -36,15 +36,18 @@ class View(wxml.ViewModel):
     def name2enum(self, v : str) -> MediaType:
         return MediaType[v]
 
+    def btn_pressed(self, evt):
+        print('btn_pressed')
+
     def show_context(self, evt):
         self.view.PopupMenu(self.view.widgets['context'])
 
 if __name__ == "__main__":
     # wxml.builder.DEBUG_ERROR = True
     # # wxml.builder.DEBUG_EVENT = True
-    # wxml.builder.DEBUG_COMPILE = True
+    #wxml.builder.DEBUG_COMPILE = True
     # # wxml.builder.DEBUG_ATTR = True
     # wxml.builder.DEBUG_BIND = True
-    # wxml.bind.DEBUG_UPDATE = True
+    #wxml.bind.DEBUG_UPDATE = True
 
     wxml.run(View)

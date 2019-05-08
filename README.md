@@ -50,15 +50,22 @@ Both members and functions can be used in this section. If the item is a member,
 </Button>
 ```
 
+Alternatively, a shortcut for setting properties on a control is shown below. Attributes prefixed with `Config.` will be converted into the equivalent Config structure and used to configure the control.
+
+```xml
+<Button label="This is a label"
+        Config.Enabled="(btn_state)" />
+```
+
 #### Import
 
 With this node, Python modules can be imported.
 
 #### EventBindings
 
-This node switches from the usual flow, to enable the binding of events to the parent object. The events are expected to be of type ```wx.Event```.
+This node switches from the usual flow, to enable the binding of events to the parent object. The events are expected to be of type `wx.Event`.
 
-Subscribers to these events can be set up in 2 ways. In the following example, an event called ```test_on_button``` will be created in the constructed view object. The ViewModel will be searched for a method called ```test_on_button```, if it does it will automatically be bound to the event. Alternatively, the ```handler``` attribute can be used to tell the ViewModel what to subscribe to. The second binding will automatically bind the event to the ```pushed``` method. This method is expected in the ViewModel, if it does not exist, no error will be raised.
+Subscribers to these events can be set up in 2 ways. In the following example, an event called `test_on_button` will be created in the constructed view object. The ViewModel will be searched for a method called `test_on_button`, if it does it will automatically be bound to the event. Alternatively, the `handler` attribute can be used to tell the ViewModel what to subscribe to. The second binding will automatically bind the event to the `pushed` method. This method is expected in the ViewModel, if it does not exist, no error will be raised.
 
 ```xml
 <Button Name="test">
@@ -69,9 +76,16 @@ Subscribers to these events can be set up in 2 ways. In the following example, a
 </Button>
 ```
 
+Like the `Config` node, a shortcut exists for the `EventBindings` one as well. The example below is equivalent to the one directly above.
+
+```xml
+<Button EventBindings.EVT_BUTTON="pushed" Name="test" />
+```
+
 #### Styles
 
 This allows for the passing of arguments to all objects of a certain type. These arguments are used in the constructor or when adding to the sizer.
+
 
 ```xml
 <Styles>
@@ -79,12 +93,13 @@ This allows for the passing of arguments to all objects of a certain type. These
 </Styles>
 
 <Button label="Test" />
+<Button label="Test" Border="ALL, 2" />
 ```
 
 
 #### View
 
-This instantiates an instance of a ```wxml.ViewModel```.
+This instantiates an instance of a `wxml.ViewModel`.
 
 This is done by specifying the name of the view (xml filename). The registered View is then constructed.
 
@@ -97,6 +112,8 @@ This is done by specifying the name of the view (xml filename). The registered V
 
 Bitmaps and icons can be loaded in the following way. Once loaded, they can be accessed using
 `wxml.Resources` (a static instance).
+
+Relative paths are considered relative to the executing file.
 
 Please note that absolute paths on Windows (`G:\path\name`) will need to change to UNC-style paths (`G$\path\name`).
 
@@ -241,6 +258,12 @@ This section describes special "filter" nodes, that operate on the current node 
 
 Unlike the previous section, these node handlers are not tied to a specific node tag. Instead, the value of the node tag is evaluated in sequence until one of these filters matches.
 
+#### build_included_view
+
+This node is the full path to a ViewModel. If the view model has been correctly decorated with the `wxml.Ui` decorator, then this will instantiate the view model.
+
+Sizer arguments on the node are passed to the root item in the view.
+
 #### create_component
 
 This constructs a previously registered custom component.
@@ -249,15 +272,15 @@ The component internally calls `UiBuilder.compile` to handle the construction of
 
 #### create_drop_target
 
-This looks for a subclass of ```wx.DropTarget```.
+This looks for a subclass of `wx.DropTarget`.
 
 #### create_sizer
 
-This looks for a subclass of ```wx.Sizer``` and then passes it to all child nodes. If a sizer exists when a child is created, then it will automatically be added to the sizer.
+This looks for a subclass of `wx.Sizer` and then passes it to all child nodes. If a sizer exists when a child is created, then it will automatically be added to the sizer.
 
 #### wx_node
 
-This looks for the node tag as a member of the ```wx``` module.
+This looks for the node tag as a member of the `wx` module.
 
 To use other wxPython modules, either fully qualify the class name or import the module directly.
 
@@ -270,6 +293,8 @@ This looks at all imported wxPython modules for the node tag.
 Internally, after it finds the class, it will call ```wx_node``` to perform the same processing.
 
 #### wx_import_node
+
+This takes a fully qualified `wx` class path. The containing module is imported automatically, and the class is used to create the control.
 
 ### Post Nodes
 
