@@ -1,6 +1,11 @@
-import threading
-import wx
 import queue
+import threading
+from typing import Optional, Callable, Tuple
+import sys
+import wx
+
+from wxml.event import Event
+
 
 def invoke_ui(func):
     """
@@ -45,3 +50,31 @@ def block_ui(func):
             else:
                 return obj
     return wraps
+
+
+def background(func):
+    """
+        Calls the wrapped function on a non-UI thread.
+        If called on a non-UI thread, the function returns normally,
+        otherwise, the thread is launched and does not wait.
+
+        The handler member is a callable that will be called if an
+        exception is thrown. The handler takes an Exception object, and
+        a tuple
+    """
+
+    def wrapped(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except Exception as ex:
+            background.handler(ex, sys.exc_info())
+
+    def wraps(*args, **kwargs):
+        if wx.IsMainThread():
+            t = threading.Thread(target=wrapped, args=args, kwargs=kwargs)
+            t.start()
+        else:
+            return func(*args, **kwargs)
+
+    return wraps
+background.handler = Event('wxml.background.handler')

@@ -32,6 +32,19 @@
                 <Value value="(text[len])" />
             </Config>
         </Gauge>
+
+        <Panel>
+            <BoxSizer Border="ALL, 3" Expand="" Proportion="1" />
+
+            <Button label="Long Task"
+                    EventBindings.EVT_BUTTON="start_task" />
+            <Button label="$Exception"
+                    EventBindings.EVT_BUTTON="exception_task" />
+            <Button label="Exception Handled"
+                    EventBindings.EVT_BUTTON="exception_task_handled" />
+        </Panel>
+
+
     </Panel>
 
     <Config>
