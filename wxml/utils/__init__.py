@@ -4,6 +4,12 @@ import glob
 import wx
 import sys
 
+def convert_path(path):
+    path = re.sub(r'^([A-Z])\$', r'\1:', path)
+    if not os.path.isabs(path):
+        path = os.path.join(os.path.dirname(sys.modules['__main__'].__file__), path)
+    return path
+
 class Resources(object):
     @staticmethod
     def Add(self, name, item):
@@ -15,14 +21,11 @@ class ImgGroup(object):
         self._loaded = {}
 
     def AddMany(self, pattern, mask=None):
-        for g in glob.glob(pattern):
+        for g in glob.glob(convert_path(pattern)):
             self.Add(g, mask=mask)
 
     def Add(self, path, name=None, mask=None):
-        path = re.sub(r'^([A-Z])\$', r'\1:', path)
-        if not os.path.isabs(path):
-            path = os.path.join(os.path.dirname(sys.modules['__main__'].__file__), path)
-
+        path = convert_path(path)
         key = name or os.path.splitext(os.path.basename(path))[0]
         key = key.replace(' ', '_')
 
@@ -39,14 +42,11 @@ class ImgGroup(object):
 
 class IconGroup(object):
     def AddMany(self, pattern):
-        for g in glob.glob(pattern):
+        for g in glob.glob(convert_path(pattern)):
             self.Add(g)
 
     def Add(self, path, name=None):
-        path = re.sub(r'^([A-Z])\$', r'\1:', path)
-        if not os.path.isabs(path):
-            path = os.path.join(os.path.dirname(sys.modules['__main__'].__file__), path)
-
+        path = convert_path(path)
         key = name or os.path.splitext(os.path.basename(path))[0]
         key = key.replace(' ', '_')
 
