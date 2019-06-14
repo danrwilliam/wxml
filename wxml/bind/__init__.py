@@ -244,6 +244,7 @@ class DynamicValue(BindValue):
             for k, v in l.__dict__.items():
                 if isinstance(v, BindValue):
                     v.add_target(self, self.update)
+        self.update()
 
     def _noop(self, changed=None):
         pass

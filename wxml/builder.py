@@ -62,7 +62,9 @@ class Ui(object):
         if class_obj.__module__ != 'wxml.builder' and class_obj.__module__  not in Ui._imported:
             for name, obj in sys.modules[class_obj.__module__].__dict__.items():
                 if isinstance(obj, type) and issubclass(obj, wx.Control):
-                    Control.Registry[full_class_path(use_name)] = obj
+                    path = full_class_path(obj)
+                    if path not in Control.Registry:
+                        Control.Registry[path] = obj
             Ui._imported.add(class_obj.__module__)
 
         return class_obj
