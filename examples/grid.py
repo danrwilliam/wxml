@@ -41,7 +41,24 @@ class TestBed(wxml.ViewModel):
             time.sleep(1)
             self.text.value = 'Task running for %d seconds' % (i + 1)
 
+        val = self.show_dialog()
+
+        self.text.value = 'show_dialog() returned %s' % val
+
+        time.sleep(2)
+
         self.text.value = 'Task has completed'
+
+    import threading
+
+    @wxml.block_ui
+    def show_dialog(self):
+        dlg = wx.MessageDialog(self.view,
+            'This is a message'
+        )
+        dlg.ShowModal()
+        dlg.Destroy()
+        return 2
 
     @wxml.background
     def exception_task(self, evt):

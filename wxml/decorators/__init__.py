@@ -22,6 +22,7 @@ def invoke_ui(func):
             return func(*args, **kwargs)
     return wraps
 
+
 def block_ui(func):
     """
         calls the wrapped function on the UI thread, and waits
@@ -34,16 +35,17 @@ def block_ui(func):
             return func(*args, **kwargs)
         else:
             q = queue.Queue()
-            def wraps(func, q, *args, **kwargs):
+            def wraps(q, func, *args, **kwargs):
                 try:
                     retval = func(*args, **kwargs)
                 except Exception as ex:
                     retval = ex
                 q.put(retval)
 
-            t = threading.Thread(target=wraps, args=(func, q, *args), kwargs=kwargs)
-            t.start()
+            # invoke on ui thread
+            wx.CallAfter(wraps, q, func, *args, **kwargs)
 
+            # wait for return
             obj = q.get(block=True)
             if isinstance(obj, Exception):
                 raise obj
