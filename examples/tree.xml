@@ -2,24 +2,31 @@
     <Panel>
         <BoxSizer orient="VERTICAL" Expand="" Proportion="1" />
 
-        <wx.dataview.DataViewListCtrl Name="list" style="DV_MULTIPLE">
+        <wx.dataview.TreeListCtrl Name="list" style="DV_MULTIPLE">
             <Config>
-                <AppendTextColumn label="a" />
-                <AppendTextColumn label="b" />
+                <AppendColumn title="a" />
+                <AppendColumn title="b" />
 
-                <Selections Bind="(selections:EVT_DATAVIEW_SELECTION_CHANGED)" />
+                <!--Selections Bind="(selections:EVT_TREELIST_SELECTION_CHANGED)" /-->
             </Config>
+
+            <ImageList Name="tree_images" width="16" height="16">
+                <Config>
+                    <Add bitmap="wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN, size=(16, 16))" />
+                    <Add bitmap="wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, size=(16, 16))" />
+                </Config>
+            </ImageList>
 
             <EventBindings>
                 <EVT_DATAVIEW_ITEM_CONTEXT_MENU handler="open_context_menu" />
             </EventBindings>
-        </wx.dataview.DataViewListCtrl>
+        </wx.dataview.TreeListCtrl>
     </Panel>
 
     <Menu Name="context_menu">
         <Open>
             <Config>
-                <Enabled value="(selections[can_open])" />
+                <!--Enabled value="(selections[can_open])" /-->
             </Config>
         </Open>
     </Menu>

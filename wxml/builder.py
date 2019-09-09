@@ -146,6 +146,7 @@ class UiBuilder(object):
         self.accel_table = []
         self.loop_vars = {}
         self.construction_errors = []
+        self.values_to_update = set()
 
         self.menu_ids = {}
 
@@ -177,6 +178,9 @@ class UiBuilder(object):
 
         if hasattr(obj, 'SetAcceleratorTable') and len(self.accel_table):
             obj.SetAcceleratorTable(wx.AcceleratorTable(self.accel_table))
+
+        # for v in self.values_to_update:
+        #     v.update_target(None)
 
         UiBuilder.debug_names.update(self.debug_names)
 
@@ -539,6 +543,11 @@ class UiBuilder(object):
 
         return None
 
+    @Node.node('ImageList')
+    def make_image_list(self, node, parent, params):
+        obj = self.wx_node(node, parent=parent, params=params, parentless=True, skip_sizer=True)
+        parent.AssignImageList(obj)
+
     @Node.filter(lambda n: hasattr(wx, n.tag) and issubclass(getattr(wx, n.tag), wx.DropTarget))
     def create_drop_target(self, node, parent, params):
         class_obj = wx_getattr(node.tag)
@@ -693,7 +702,7 @@ class UiBuilder(object):
             binding.add_source(parent, event, attr_name, transform=receiver, bind_to=bind_to)
 
         if can_update:
-            binding.update_target(None)
+            self.values_to_update.add(binding)
 
     SIZER_FLAGS_DICT = {
         wx.BoxSizer: [
@@ -1013,6 +1022,9 @@ class UiBuilder(object):
         else:
             filename = node.tag
 
+        # convert to relative to current XML
+        filename = os.path.join(os.path.dirname(os.path.abspath(self.filename)), filename)
+
         if filename in Ui.Registry:
             view_model = Ui.Registry[filename]
         else:
@@ -1161,7 +1173,9 @@ class UiBuilder(object):
             from_ = to_ = lambda v: v
             bind_value = None
 
-        menu.AppendSeparator()
+        num = menu.GetMenuItemCount()
+        if num > 0 and menu.FindItemByPosition(num - 1).Kind != wx.ITEM_SEPARATOR:
+            menu.AppendSeparator()
 
         ids = {}
 
@@ -1533,6 +1547,9 @@ class ViewModel(object):
 
             if len(ui.construction_errors):
                 ErrorViewModel.instance().view.Show()
+
+        for v in ui.values_to_update:
+            v.update_target(None)
 
         if self.view is not None:
             self.ready()

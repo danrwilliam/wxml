@@ -1,10 +1,10 @@
-<Frame title="$SplitterWindow with Menus Exampl">
+<Frame title="$SplitterWindow with Menus Example">
     <SplitterWindow>
         <Panel Name="top">
             <BoxSizer Expand="" orient="VERTICAL" Border="ALL, 5" Proportion="1">
                 <wx.dataview.TreeListCtrl>
                     <Config>
-                        <AppendColumn title="Test" />
+                        <AppendColumn title="Build Step" />
                         <AppendColumn title="Duration" />
                         <AppendColumn title="Pass" />
                         <AppendColumn title="Fail" />
@@ -21,7 +21,7 @@
                         <AddPage page="{messages}" text="Messages" />
                     </Config>
                 </Notebook>
-                <View view="examples\view.xml" />
+                <View view="view.xml" />
             </BoxSizer>
         </Panel>
 

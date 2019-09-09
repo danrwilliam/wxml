@@ -1,0 +1,67 @@
+<Frame Config.Title="Array Bindings">
+    <Panel>
+        <BoxSizer Expand="" orient="VERTICAL" Border="ALL, 4" />
+
+        <Choice>
+            <Config>
+                <Items value="(first)" />
+                <Selection value="(first.index:EVT_CHOICE)" />
+            </Config>
+        </Choice>
+
+        <Button label="Reverse" EventBindings.EVT_BUTTON="reverse_first" />
+        <Panel>
+            <FlexGridSizer cols="4" vgap="3" hgap="3" />
+
+            <StaticText label="AfterChanged:" />
+            <StaticText label="(first_times[str])" />
+
+            <StaticText label="ValueChanged:" />
+            <StaticText label="(first_changed[str])" />
+
+            <StaticText label="ValueSet:" />
+            <StaticText label="(first_set[str])" />
+
+            <StaticText label="Item Index:" />
+            <StaticText label="(first.index[str])" />
+
+            <Config Item="sizer">
+                <AddGrowableCol idx="0" proportion="3" />
+                <AddGrowableCol idx="1" proportion="1" />
+                <AddGrowableCol idx="2" proportion="3" />
+                <AddGrowableCol idx="3" proportion="1" />
+            </Config>
+        </Panel>
+
+        <Choice>
+            <Config>
+                <Items value="(second)" />
+                <Selection value="(second.index:EVT_CHOICE)" />
+            </Config>
+        </Choice>
+
+        <Panel>
+            <FlexGridSizer cols="4" vgap="3" hgap="3" Expand="" />
+
+            <StaticText label="AfterChanged:" />
+            <StaticText label="(second_times[str])" />
+
+            <StaticText label="ValueChanged:" />
+            <StaticText label="(first_changed[str])" />
+
+            <StaticText label="ValueSet:" />
+            <StaticText label="(first_set[str])" />
+
+            <StaticText label="Item Index:" />
+            <StaticText label="(second.index[str])" />
+
+            <Config Item="sizer">
+                <AddGrowableCol idx="0" proportion="3" />
+                <AddGrowableCol idx="1" proportion="1" />
+                <AddGrowableCol idx="2" proportion="3" />
+                <AddGrowableCol idx="3" proportion="1" />
+            </Config>
+        </Panel>
+
+    </Panel>
+</Frame>

@@ -1,16 +1,4 @@
 <Frame>
-
-    <Config>
-        <Title value="(selected_tab[strapped])" />
-        <SetInitialSize size="800, 600" />
-        <CreateStatusBar number="4">
-            <SetStatusText i="0" text="MenuTab" />
-            <SetStatusText i="1" text="(menu_tab[str])" />
-            <SetStatusText i="2" text="SelectedTab" />
-            <SetStatusText i="3" text="(selected_tab[str])" />
-        </CreateStatusBar>
-    </Config>
-
     <Panel>
         <BoxSizer orient="VERTICAL" Border="ALL, 5" Expand="" />
 
@@ -36,6 +24,17 @@
 
         </Notebook>
     </Panel>
+
+    <Config>
+        <Title value="(selected_tab[strapped])" />
+        <SetInitialSize size="800, 600" />
+        <CreateStatusBar number="4">
+            <SetStatusText i="0" text="MenuTab" />
+            <SetStatusText i="1" text="(menu_tab[str])" />
+            <SetStatusText i="2" text="SelectedTab" />
+            <SetStatusText i="3" text="(selected_tab[str])" />
+        </CreateStatusBar>
+    </Config>
 
     <MenuBar>
         <Menu Name="File">

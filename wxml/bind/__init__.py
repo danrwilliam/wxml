@@ -74,6 +74,10 @@ class BindSource(object):
         return value
 
 class DataStore:
+    """
+        Handler for serializing/deserializing persisted data.
+    """
+
     Directory = ''
     store = None
     _map = {}
@@ -121,12 +125,13 @@ class DataStore:
         return cls.store.get(name)
 
 class BindValue(object):
-    def __init__(self, value, name=None, parent=None, serialize=False):
+    def __init__(self, value, name=None, parent=None, serialize=False, trace=False):
         if serialize is True and name is None:
             raise ValueError('BindValue: name cannot be None when serialize is True')
 
         self._value = value
         self.name: str = name
+        self._trace = trace
 
         self.serialize = serialize
         if self.serialize:
@@ -138,8 +143,12 @@ class BindValue(object):
         self.sources: List[Callable] = {}
         self._previous = None
 
+        # Fired when the value has changed, before updating targets
         self.value_changed = Event('value_changed')
+        # Fired after updating targets
         self.after_changed = Event('after_changed')
+        # Fired when setting the value, even if it is not changed
+        self.value_set = Event('value_set')
 
         for p in (parent or []):
             if isinstance(p, BindValue):
@@ -153,7 +162,7 @@ class BindValue(object):
     def add_source(self, obj, event, attr, transform=None, bind_to=None, arguments=None):
         source = BindSource(obj, attr, transform, arguments)
         if bind_to:
-            b = source.obj.Bind(event, self.receive, bind_to)
+            source.obj.Bind(event, self.receive, bind_to)
         else:
             source.obj.Bind(event, self.receive)
         self.sources[obj] = source
@@ -161,8 +170,7 @@ class BindValue(object):
     def receive(self, evt):
         obj = evt.GetEventObject()
         value = self.sources[obj].receive()
-        self._value = value
-        self.update_target(source=obj)
+        self._set(value, source=obj)
         evt.Skip()
 
     def __str__(self):
@@ -178,24 +186,33 @@ class BindValue(object):
     def value(self):
         return self._value
 
-    @value.setter
-    def value(self, new):
+    def _set(self, new, source=None):
+        if self._trace:
+            print(' %s.value.setter (new=%s) (old=%s) (changed=%s)' % (
+                self.name or self.__class__.__name__, new, self._value, new != self._value
+            ))
+
+        self.value_set(new)
         if self._value != new:
             self._previous = self._value
             self._value = new
-            self.update_target()
+            self.update_target(source=source)
+
+    @value.setter
+    def value(self, new):
+        self._set(new)
 
     @block_ui
     def update_target(self, source=None):
         """
-            Fires the value_changed event, updates all targets, and then
-            fires the after_changed event.
+            Fires the value_changed event, updates all targets (except the source),
+            and then fires the after_changed event.
 
             This will always be invoked on the UI thread.
         """
         self.value_changed(self._value)
 
-        if DEBUG_UPDATE:
+        if DEBUG_UPDATE or self._trace:
             print(' %s update_target with %s (source: %s)' % (
                 self.name or self.__class__.__name__, self._value, source
             ))
@@ -203,56 +220,74 @@ class BindValue(object):
         for target in self.targets:
             if target.obj != source:
                 target(self._value)
+
         self.after_changed(self._value)
 
 
 class ArrayBindValue(BindValue):
-    def __init__(self, array: List, name=None, parent=None, serialize=False):
-        super().__init__(array, name=name, parent=parent, serialize=serialize)
+    def __init__(self, array: List, name=None, parent=None, serialize=False, trace=False, preserve=True):
+        super().__init__(array, name=name, parent=parent, serialize=serialize, trace=trace)
+        self.preserve = preserve
         self.index = BindValue(
             0,
             name='%s-sel' % name if name is not None else None,
-            serialize=serialize
+            serialize=serialize,
+            trace=trace
         )
-        self.item = wxml.DynamicValue(self, update=self._update_selection)
+        self.item = wxml.DynamicValue(
+            self,
+            update=self._update_selection,
+            name='%s-item' % name if name is not None else None,
+            trace=trace
+        )
         self.after_changed += self._set_index
 
     def _set_index(self, e):
-        self.index.value = self.index.value
-        self.index.update_target()
+        if not self.preserve:
+            return
+
+        # at this point, the item has already been changed
+        # so we need to use the previous item
+        prev = self.item._previous
+
+        if prev in self.value:
+            new_idx = self.value.index(prev)
+            if new_idx == self.index.value:
+                self.index.touch()
+            else:
+                self.index.value = new_idx
+        else:
+            self.index.value = max(0, min(len(self.value), self.index.value))
 
     def _update_selection(self):
         return self.value[self.index.value]
 
-    @property
-    def selected(self):
-        return self.value[self.index.value]
-
-    @selected.setter
-    def selected(self, value):
-        idx = max(0, self.value.index(value))
-        self.index.value = idx
-
 class DynamicValue(BindValue):
-    def __init__(self, *listeners : List[BindValue], update : Callable=None, default='', name=None):
-        super().__init__(default, serialize=False, name=name)
+    """
+        Creating a DynamicValue without a update method will always cause
+        targets to be updated. This can be used as a way to group together
+        bind values to be listened to.
+    """
+    def __init__(self, *listeners : List[BindValue], update : Callable=None, default='', name=None, trace=False):
+        super().__init__(default, serialize=False, name=name, trace=trace)
         self.action = update or self._noop
         for l in listeners:
             if isinstance(l, BindValue):
                 l.add_target(self, self.update)
 
+            # also subscribe to any bind values contained in this listener
             for k, v in l.__dict__.items():
                 if isinstance(v, BindValue):
                     v.add_target(self, self.update)
+
         self.update()
 
     def _noop(self, changed=None):
-        pass
+        return not self._value
 
     def update(self, changed=None):
         value = self.action()
-        self._value = value
-        self.update_target()
+        self.value = value
 
     def push_event(self, event):
         value = self.action(event)
@@ -260,27 +295,48 @@ class DynamicValue(BindValue):
         self.update_target()
 
 class DynamicArrayBindValue(DynamicValue):
-    def __init__(self, *listeners : List[BindValue], update:Callable = None, changed_index=None,
-                 name:str=None):
-        super().__init__(*listeners, name=name, update=update)
-        self.index = BindValue(0, name='%s.index' % name if name is not None else None)
-        self.item = DynamicValue(self, update=self._update_selected)
+    """
+        listeners: list of BindValue's that will cause this to update
+        update   : the method that will get the new value
+        name     : identifier useful for debugging
+        trace    : additional tracing
+        preserve : when the value changes, attempt to preserve
+                   the selected item, otherwise the index is
+                   constrained to the new contents
+    """
+
+    def __init__(self, *listeners : List[BindValue], update:Callable = None,
+                 name:str=None, trace=False, preserve=True):
+        super().__init__(*listeners, name=name, update=update, trace=trace)
+        self.preserve = preserve
+        self.index = BindValue(0, name='%s.index' % name if name is not None else None, trace=trace)
+        self.item = DynamicValue(
+            self,
+            update=self._update_selected,
+            trace=trace,
+            name='%s.item' % name if name is not None else None
+        )
         self.after_changed += self._set_index
-        self.changed_index = changed_index
 
     def _update_selected(self):
         return self.value[self.index.value]
 
     def _set_index(self, e):
-        self.index.value = self.index.value if self.changed_index is None else self.changed_index
-        self.index.update_target()
+        if not self.preserve:
+            return
 
-    @property
-    def selected(self):
-        if self.index.value < len(self.value):
-            return self.value[self.index.value]
+        # at this point, the item has already been changed
+        # so we need to use the previous item
+        prev = self.item._previous
+
+        if prev in self.value:
+            new_idx = self.value.index(prev)
+            if new_idx == self.index.value:
+                self.index.touch()
+            else:
+                self.index.value = new_idx
         else:
-            return None
+            self.index.value = max(0, min(len(self.value), self.index.value))
 
 class Transformer(object):
     def __init__(self, bind_value: BindValue):
@@ -289,6 +345,7 @@ class Transformer(object):
         raise NotImplementedError()
     def from_widget(self, value):
         raise NotImplementedError
+
 
 class ToWidgetGenericTransformer(Transformer):
     def __init__(self, bind_value, converter):
