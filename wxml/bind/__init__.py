@@ -13,6 +13,7 @@ from wxml.event import Event
 from wxml.attr import nested_getattr, nested_hasattr
 
 DEBUG_UPDATE = False
+DEBUG_STORE = False
 
 class BindFailure(enum.Enum):
     Ignore = "Ignore"
@@ -93,7 +94,10 @@ class DataStore:
         if os.path.exists(cls._store_file()):
             try:
                 with open(cls._store_file(), 'r') as fp:
-                    cls.store = json.loads(fp.read())
+                    data = json.loads(fp.read())
+                    cls.store = data
+                    if DEBUG_STORE:
+                        print('Store File loaded from %s' % cls._store_file())
             except Exception:
                 cls.store = {}
         else:
@@ -121,8 +125,12 @@ class DataStore:
             name = bind.name
 
         cls._map[name] = bind
+        val = cls.store.get(name)
 
-        return cls.store.get(name)
+        if DEBUG_STORE:
+            print('store.get(%s) = %s' % (name, val))
+
+        return val
 
 class BindValue(object):
     def __init__(self, value, name=None, parent=None, serialize=False, trace=False):
@@ -188,7 +196,7 @@ class BindValue(object):
 
     def _set(self, new, source=None):
         if self._trace:
-            print(' %s.value.setter (new=%s) (old=%s) (changed=%s)' % (
+            print(' %s.value set (new=%s) (old=%s) (changed=%s)' % (
                 self.name or self.__class__.__name__, new, self._value, new != self._value
             ))
 
@@ -317,6 +325,7 @@ class DynamicArrayBindValue(DynamicValue):
             name='%s.item' % name if name is not None else None
         )
         self.after_changed += self._set_index
+        self.index.touch()
 
     def _update_selected(self):
         return self.value[self.index.value]

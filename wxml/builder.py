@@ -146,7 +146,7 @@ class UiBuilder(object):
         self.accel_table = []
         self.loop_vars = {}
         self.construction_errors = []
-        self.values_to_update = set()
+        self.values_to_update = []
 
         self.menu_ids = {}
 
@@ -701,8 +701,8 @@ class UiBuilder(object):
         if from_widget:
             binding.add_source(parent, event, attr_name, transform=receiver, bind_to=bind_to)
 
-        if can_update:
-            self.values_to_update.add(binding)
+        if can_update and binding not in self.values_to_update:
+            self.values_to_update.append(binding)
 
     SIZER_FLAGS_DICT = {
         wx.BoxSizer: [
@@ -1549,7 +1549,7 @@ class ViewModel(object):
                 ErrorViewModel.instance().view.Show()
 
         for v in ui.values_to_update:
-            v.update_target(None)
+            v.touch()
 
         if self.view is not None:
             self.ready()

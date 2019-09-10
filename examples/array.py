@@ -1,25 +1,27 @@
 import wxml
 
+wxml.bind.DEBUG_UPDATE=0
+
 @wxml.Ui('array.xml')
 class ArrayView(wxml.ViewModel):
     def initialize(self):
         self.first = wxml.ArrayBindValue([
             'first', 'second', 'third', 'fourth'
-        ], name='first')
+        ], name='first', serialize=True, trace=0)
 
-        self.second = wxml.DynamicArrayBindValue(self.first, update=self.get_second)
+        self.second = wxml.DynamicArrayBindValue(self.first, name='second', update=self.get_second, trace=1)
 
-        self.first_times = wxml.BindValue(0)
-        self.first_changed = wxml.BindValue(0)
-        self.first_set = wxml.BindValue(0)
+        self.first_times = wxml.BindValue(0, name='first_times')
+        self.first_changed = wxml.BindValue(0, name='first_changed')
+        self.first_set = wxml.BindValue(0, name='first_set')
 
         self.first.index.after_changed += self.increment_first
         self.first.index.value_changed += self.increment_first_changed
         self.first.index.value_set += self.increment_first_set
 
-        self.second_times = wxml.BindValue(0)
-        self.second_changed = wxml.BindValue(0)
-        self.second_set = wxml.BindValue(0)
+        self.second_times = wxml.BindValue(0, name='second_times')
+        self.second_changed = wxml.BindValue(0, name='second_changed')
+        self.second_set = wxml.BindValue(0, name='second_set')
         self.second.index.after_changed += self.increment_second
         self.second.index.value_changed += self.increment_second_changed
         self.second.index.value_set += self.increment_second_set
