@@ -375,7 +375,6 @@ Additionally, a shortcut for attribute access of a bind value is available. This
 <StaticText label="(directory[.full_path])" />
 ```
 
-
 ### DynamicValue
 
 You may want to compute a value based on the values of other BindValues, and update that property automatically when one of its dependencies changes.
@@ -394,11 +393,42 @@ Whenever `a` or `b` are changed, the value of `c` will be updated.
 
 ### ArrayBindValue
 
+This class encapsulates storing a list of values, and tracking the currently selected item. The class
+contains two additional values to track the index and the selected item.
 
+- `ArrayBindValue.index`: this tracks the index of the selected.
+- `ArrayBindValue.item`: this is a `DynamicValue` that will hold the selected item of the array. When the index
+changes, this value will be updated.
 
-### value_changed Event
+### DynamicArrayBindValue
+
+This is a variant of the `ArrayBindValue` that allows for the array contents to be determined by
+the parent bind values. It contains the same `index` and `item` bind values.
+
+### Events
+
+There are several events that are fired when a BindValue changes.
+
+### value_changed
 
 When the BindValue's value is changed, the `value_changed` event handler is fired. This occurs before the updates are sent out to any BindValue targets. This can be useful to do other work that is needed with the new value, but does not warrant a BindValue to do so. Subscribed methods should not modify the BindValue.
+
+The new value is passed to the event handlers.
+
+### after_changed
+
+This event is fired after the new value has been assigned to a BindValue, and after all its bind targets
+have been updated.
+
+The new value is passed to the event handlers.
+
+### value_set
+
+This event is fired when an attempt to change the value happens. This will fire regardless if the new value
+is different from the current value. When the event fires, the bind value will not have been updated yet.
+
+The candidate value is passed to the event handlers.
+
 
 ### Data Persistence
 

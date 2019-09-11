@@ -1023,7 +1023,7 @@ class UiBuilder(object):
             filename = node.tag
 
         # convert to relative to current XML
-        filename = os.path.join(os.path.dirname(os.path.abspath(self.filename)), filename)
+        # filename = os.path.join(os.path.dirname(os.path.abspath(self.filename)), filename)
 
         if filename in Ui.Registry:
             view_model = Ui.Registry[filename]
