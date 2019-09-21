@@ -482,11 +482,16 @@ class UiBuilder(object):
 
     @Node.node('ShowIconStandalone')
     def show_icon_standalone(self, node, parent, params):
+        myappid = 'python.script.%s' % os.path.basename(sys.modules['__main__'].__file__)
+
         try:
             import ctypes
-            myappid = 'python.script.%s' % os.path.basename(sys.modules['__main__'].__file__)
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except ImportError:
+            return
+
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except AttributeError:
             pass
 
     @Node.filter(lambda n: n.tag in UiBuilder.components)
