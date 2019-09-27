@@ -252,6 +252,20 @@ Other controls can be added as well.
 </MainToolBar>
 ```
 
+#### Triggers
+
+The `Triggers` node allows you to set up function calls that will fire when a BindValue changes.
+The child nodes specify functions that are members of the parent. The `on` attribute is reserved
+to specify the BindValue to listen to. Arguments to the functions can be given as well.
+
+```xml
+<Panel>
+    <Triggers>
+        <Center on="second.item" />
+    </Triggers>
+</Panel>
+```
+
 ### Filter Nodes
 
 This section describes special "filter" nodes, that operate on the current node tag's and try to find an appropriate Python object for it.

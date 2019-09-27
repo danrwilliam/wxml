@@ -1050,6 +1050,31 @@ class UiBuilder(object):
         self.debug_names[constructed.view] = name
         self.children[name] = constructed.view
 
+    @Node.node('Triggers')
+    def triggers(self, node, parent, params):
+        for n in node:
+            if hasattr(parent, n.tag) and (callable(getattr(parent, n.tag)) or 'value' in n.attrib):
+                value = nested_getattr(n.attrib.get('on'), root=self.view_model)
+                if bind is not None and isinstance(value, bind.BindValue):
+                    args = self.eval_args(n.attrib, exclude=['on'])
+                    func = getattr(parent, n.tag)
+
+                    def on_changed(args, func, new_value):
+                        send = {}
+                        for k, v in args.items():
+                            if ((isinstance(v, tuple) and isinstance(v[0], bind.BindValue)) or
+                                isinstance(v, bind.BindValue)):
+                                send[k] = v.value
+                            else:
+                                send[k] = v
+                        func(**send)
+                    handler = functools.partial(on_changed, args, func)
+                    value.after_changed += handler
+
+                    def cleanup_trigger(value, handler):
+                        value.after_changed -= handler
+                    self.view_model.on_close += lambda value=value, handler=handler: cleanup_trigger(value, handler)
+
     @Node.node('Styles')
     def push_styles(self, node, parent, params):
         style_args = {}

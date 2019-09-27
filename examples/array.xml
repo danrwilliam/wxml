@@ -62,6 +62,12 @@
                 <AddGrowableCol idx="3" proportion="1" />
             </Config>
         </Panel>
-
     </Panel>
+
+    <Triggers>
+        <Center on="second.item" />
+        <SetSize on="first.item" size="700, 500" />
+        <Layout on="second.item" />
+        <Layout on="first.item" />
+    </Triggers>
 </Frame>

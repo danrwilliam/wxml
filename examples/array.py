@@ -7,9 +7,9 @@ class ArrayView(wxml.ViewModel):
     def initialize(self):
         self.first = wxml.ArrayBindValue([
             'first', 'second', 'third', 'fourth'
-        ], name='first', serialize=True, trace=0)
+        ], name='first', serialize=True, trace=1)
 
-        self.second = wxml.DynamicArrayBindValue(self.first, name='second', update=self.get_second, trace=1)
+        self.second = wxml.DynamicArrayBindValue(self.first, name='second', update=self.get_second, trace=0)
 
         self.first_times = wxml.BindValue(0, name='first_times')
         self.first_changed = wxml.BindValue(0, name='first_changed')
