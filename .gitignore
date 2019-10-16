@@ -4,3 +4,4 @@ extensions.json
 .vscode
 TODO
 *egg-info
+*.mypy-cache

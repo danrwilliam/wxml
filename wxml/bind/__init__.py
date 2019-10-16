@@ -1,7 +1,7 @@
 import sys
 import os
 import json
-from typing import List, Dict, Optional, Callable, Type
+from typing import List, Dict, Optional, Callable, Type, Any
 import enum
 
 import wx
@@ -21,7 +21,8 @@ class BindFailure(enum.Enum):
     Raise = "Raise"
 
 class BindTarget(object):
-    def __init__(self, obj, attr, transform=None, arguments=None):
+    def __init__(self, obj, attr, transform : Optional['Transformer'] = None,
+                 arguments : Optional[Dict[str, Any]] = None):
         self.obj = obj
         self.attr = attr
         self.is_call = callable(self.attr)
@@ -29,11 +30,9 @@ class BindTarget(object):
         self.arguments = arguments or {}
 
         if self.is_call:
-            bindings = [k for k, v in self.arguments.items() if isinstance(v, BindValue)]
-            if len(bindings):
-                self.bind_key = bindings[0]
-            else:
-                self.bind_key = None
+            self._bindings = [(k, v) for k, v in self.arguments.items() if isinstance(v, BindValue)]
+        else:
+            self._bindings = None
 
     def __call__(self, value):
         if self.transformer is not None:
@@ -46,10 +45,11 @@ class BindTarget(object):
                 value)
             )
 
-        if self.is_call and self.bind_key is not None:
-            self.arguments[self.bind_key] = value
+        if self.is_call and self._bindings is not None:
+            for idx, bind in self._bindings:
+                self.arguments[idx] = bind.value
             self.attr(**self.arguments)
-        elif self.is_call and self.bind_key is None:
+        elif self.is_call and self._bindings is None:
             self.attr(value)
         else:
             setattr(self.obj, self.attr, value)

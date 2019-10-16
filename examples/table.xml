@@ -1,0 +1,26 @@
+<Frame>
+    <Panel>
+        <BoxSizer orient="VERTICAL" Border="ALL, 5" Expand=""/>
+
+        <wx.dataview.DataViewListCtrl Name="list" Proportion="1">
+            <Config>
+                <AppendTextColumn label="Name" />
+                <AppendTextColumn label="Location" />
+
+                <SelectedRow Bind="(selection:EVT_DATAVIEW_SELECTION_CHANGED)" />
+            </Config>
+        </wx.dataview.DataViewListCtrl>
+
+
+        <StaticLine />
+
+        <Button label="Save" EventBindings.EVT_BUTTON="commit" />
+
+        <StaticText label="Name" />
+        <TextCtrl value="(name_entry:EVT_TEXT)" />
+
+        <StaticText label="Location" />
+        <TextCtrl value="(location_entry:EVT_TEXT)" />
+
+    </Panel>
+</Frame>
