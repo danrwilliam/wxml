@@ -29,10 +29,14 @@ class BindTarget(object):
         self.transformer = transform
         self.arguments = arguments or {}
 
+        self.bind_key = None
+
         if self.is_call:
-            self._bindings = [(k, v) for k, v in self.arguments.items() if isinstance(v, BindValue)]
-        else:
-            self._bindings = None
+            bindings = [k for k, v in self.arguments.items() if isinstance(v, BindValue)]
+            if len(bindings):
+                self.bind_key = bindings[0]
+            else:
+                self.bind_key = None
 
     def __call__(self, value):
         if self.transformer is not None:
@@ -45,11 +49,10 @@ class BindTarget(object):
                 value)
             )
 
-        if self.is_call and self._bindings is not None:
-            for idx, bind in self._bindings:
-                self.arguments[idx] = bind.value
+        if self.is_call and self.bind_key is not None:
+            self.arguments[self.bind_key] = value
             self.attr(**self.arguments)
-        elif self.is_call and self._bindings is None:
+        elif self.is_call and self.bind_key is None:
             self.attr(value)
         else:
             setattr(self.obj, self.attr, value)
