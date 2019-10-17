@@ -205,6 +205,15 @@ class BindValue(object):
         """
         self.update_target()
 
+    def touch_all(self):
+        """
+            Fire update of all targets, including any BindValue members
+        """
+        self.touch()
+        for v in self.__dict__.values():
+            if isinstance(v, BindValue):
+                v.touch_all()
+
     @property
     def value(self):
         return self._value
