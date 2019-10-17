@@ -167,6 +167,21 @@ class BindValue(object):
     def add_target(self, obj, attr, transform=None, arguments=None):
         self.targets.append(BindTarget(obj, attr, transform, arguments))
 
+    def add_target2(self, obj, attr, transform=None, **arguments):
+        """
+            shortcut method for add_target
+
+            if transform is a callable, it will be wrapped into
+            a ToWidgetGenericTransformer.
+
+            arguments can be given as kwargs instead of passed as a
+            dictionary
+        """
+
+        if callable(transform) and not isinstance(transform, wxml.Transformer):
+            transform = ToWidgetGenericTransformer(self, transform)
+        self.add_target(obj, attr, transform, arguments)
+
     def add_source(self, obj, event, attr, transform=None, bind_to=None, arguments=None):
         source = BindSource(obj, attr, transform, arguments)
         if bind_to:

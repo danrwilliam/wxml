@@ -20,7 +20,7 @@ class TableView(wxml.ViewModel):
         for r, d in enumerate(self.data):
             ctrl.AppendItem(['' for i in d])
             for c, b in enumerate(d):
-                b.add_target(ctrl, ctrl.SetTextValue, None, {'value': b, 'row': r, 'col': c})
+                b.add_target2(ctrl, ctrl.SetTextValue, value=b, row=r, col=c)
                 b.touch()
 
     def commit(self, evt):
