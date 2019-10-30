@@ -196,7 +196,14 @@ class BindValue(object):
     def receive(self, evt):
         obj = evt.GetEventObject()
         value = self.sources[obj].receive()
+        
+        if self._trace or DEBUG_UPDATE:
+            print(' %s.value changed by widget=%s new_value=%s value=%s' % (
+                self.name or self.__class__.__name__, obj, value, self.value
+            ))
+        
         self._set(value, source=obj)
+
         evt.Skip()
 
     def __str__(self):
@@ -279,6 +286,8 @@ class ArrayBindValue(BindValue):
 
     def _set_index(self, e):
         if not self.preserve:
+            self.index.value = 0
+            self.index.touch()
             return
 
         # at this point, the item has already been changed
@@ -295,7 +304,10 @@ class ArrayBindValue(BindValue):
             self.index.value = max(0, min(len(self.value), self.index.value))
 
     def _update_selection(self):
-        return self.value[self.index.value]
+        try:
+            return self.value[self.index.value]
+        except (IndexError, KeyError):
+            return None
 
 class DynamicValue(BindValue):
     """
@@ -329,7 +341,7 @@ class DynamicValue(BindValue):
         self._value = value
         self.update_target()
 
-class DynamicArrayBindValue(DynamicValue):
+class DynamicArrayBindValue(DynamicValue, ArrayBindValue):
     """
         listeners: list of BindValue's that will cause this to update
         update   : the method that will get the new value
@@ -344,35 +356,42 @@ class DynamicArrayBindValue(DynamicValue):
                  name:str=None, trace=False, preserve=True):
         super().__init__(*listeners, name=name, update=update, trace=trace)
         self.preserve = preserve
-        self.index = BindValue(0, name='%s.index' % name if name is not None else None, trace=trace)
-        self.item = DynamicValue(
-            self,
-            update=self._update_selected,
-            trace=trace,
-            name='%s.item' % name if name is not None else None
-        )
-        self.after_changed += self._set_index
-        self.index.touch()
+        #self.preserve = preserve
+        #self.index = BindValue(0, name='%s.index' % name if name is not None else None, trace=trace)
+        #self.item = DynamicValue(
+        #    self,
+        #    update=self._update_selected,
+        #    trace=trace,
+        #   name='%s.item' % name if name is not None else None
+        #)
+        #self.after_changed += self._set_index
+        #self.index.touch()
 
-    def _update_selected(self):
-        return self.value[self.index.value]
+    # def _update_selected(self):
+        # try:
+            # return self.value[self.index.value]
+        # except (KeyError, IndexError):
+            # return None
 
-    def _set_index(self, e):
-        if not self.preserve:
-            return
+    # def _set_index(self, e):
+        # if not self.preserve:
+            # self.index.value = 0
+            # self.index.touch()
+            # return
 
-        # at this point, the item has already been changed
-        # so we need to use the previous item
-        prev = self.item._previous
+        # # at this point, the item has already been changed
+        # # so we need to use the previous item
+        # prev = self.item._previous
 
-        if prev in self.value:
-            new_idx = self.value.index(prev)
-            if new_idx == self.index.value:
-                self.index.touch()
-            else:
-                self.index.value = new_idx
-        else:
-            self.index.value = max(0, min(len(self.value), self.index.value))
+        # if prev in self.value:
+            # new_idx = self.value.index(prev)
+            # if new_idx == self.index.value:
+                # self.index.touch()
+            # else:
+                # self.index.value = new_idx
+        # else:
+            # self.index.value = max(0, min(len(self.value), self.index.value))
+        # print(self.index.value, self.item.value)
 
 class Transformer(object):
     def __init__(self, bind_value: BindValue):
