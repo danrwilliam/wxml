@@ -196,12 +196,12 @@ class BindValue(object):
     def receive(self, evt):
         obj = evt.GetEventObject()
         value = self.sources[obj].receive()
-        
+
         if self._trace or DEBUG_UPDATE:
             print(' %s.value changed by widget=%s new_value=%s value=%s' % (
                 self.name or self.__class__.__name__, obj, value, self.value
             ))
-        
+
         self._set(value, source=obj)
 
         evt.Skip()

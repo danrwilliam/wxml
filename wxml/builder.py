@@ -385,6 +385,15 @@ class UiBuilder(object):
                             except Exception as ex:
                                 pass
 
+        # last chance, look again at imported modules if this might be something
+        if not_a_class and (resolved == 'str' and '.' in value):
+            retval = nested_getattr(value, default=None)
+            if retval is not None:
+                resolved = 'ModuleMember(again)'
+                if DEBUG_EVAL:
+                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, retval, retval.__class__.__name__))
+                return retval
+
         if DEBUG_EVAL:
             print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, retval, retval.__class__.__name__))
 
