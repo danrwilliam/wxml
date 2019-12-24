@@ -1329,7 +1329,7 @@ class UiBuilder(object):
                     acc, char = scut
                     self.accel_table.append((acc, char, insert_id))
 
-                mp = parent
+                mp = menu #parent
                 if mp not in self.events:
                     self.events[mp] = []
 
