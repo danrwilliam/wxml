@@ -1329,36 +1329,38 @@ class UiBuilder(object):
                     acc, char = scut
                     self.accel_table.append((acc, char, insert_id))
 
-                mp = menu #parent
-                if mp not in self.events:
-                    self.events[mp] = []
+                parents = [menu, parent]
+                for mp in parents:
+                    # mp = menu #parent
+                    if mp not in self.events:
+                        self.events[mp] = []
 
-                check_bind = child.attrib.get('Check')
-                if item_kind == wx.ITEM_CHECK and check_bind:
-                    binding = self.str2py(check_bind)
-                    if isinstance(binding, tuple):
-                        binding, evt, to_, from_ = binding
-                        if evt is not None:
-                            binding.add_source(
+                    check_bind = child.attrib.get('Check')
+                    if item_kind == wx.ITEM_CHECK and check_bind:
+                        binding = self.str2py(check_bind)
+                        if isinstance(binding, tuple):
+                            binding, evt, to_, from_ = binding
+                            if evt is not None:
+                                binding.add_source(
+                                    mp,
+                                    evt,
+                                    mp.IsChecked,
+                                    transform=from_,
+                                    bind_to=menu_item,
+                                    arguments={'id': menu_item.Id}
+                                )
+                            binding.add_target(
                                 mp,
-                                evt,
-                                mp.IsChecked,
-                                transform=from_,
-                                bind_to=menu_item,
-                                arguments={'id': menu_item.Id}
+                                mp.Check,
+                                transform=to_,
+                                arguments={'id': menu_item.Id, 'check': binding}
                             )
-                        binding.add_target(
-                            mp,
-                            mp.Check,
-                            transform=to_,
-                            arguments={'id': menu_item.Id, 'check': binding}
-                        )
-                    elif isinstance(binding, bind.BindValue):
-                        menu.Check(menu_item.Id, binding.value)
+                        elif isinstance(binding, bind.BindValue):
+                            menu.Check(menu_item.Id, binding.value)
+                        else:
+                            menu.Check(menu_item.Id, binding)
                     else:
-                        menu.Check(menu_item.Id, binding)
-                else:
-                    self.events[mp].append(('EVT_MENU', func, menu_item))
+                        self.events[mp].append(('EVT_MENU', func, menu_item))
 
         if parent is not None and isinstance(parent, wx.Menu):
             appended = parent.Append(wx_getattr(child.attrib.get('id', 'ID_ANY')), node.attrib.get('Name'), menu)
