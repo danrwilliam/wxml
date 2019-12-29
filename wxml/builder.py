@@ -1332,11 +1332,8 @@ class UiBuilder(object):
                 else:
                     func = None
 
-                #parents = [menu, parent]
-
+                # bind events to view object
                 mp = None
-
-                #for mp in parents:
                 if mp not in self.events:
                     self.events[mp] = []
 
