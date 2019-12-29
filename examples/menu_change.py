@@ -5,6 +5,7 @@
 
 import wx
 import wxml
+import wx.lib.agw.shortcuteditor
 
 from enum import Enum
 
@@ -25,6 +26,10 @@ class View(wxml.ViewModel):
         self.enum = wxml.BindValue(MediaType.Movie)
         self.enum.after_changed += self.new_value
         self.no_choice = wxml.BindValue('Third')
+        self.action_choice = wxml.BindValue('')
+
+    def ready(self):
+        print(self.view.accel_table)
 
     def new_value(self, v):
         #print(self.enum.value, self.enum.value.__class__)
@@ -42,12 +47,23 @@ class View(wxml.ViewModel):
     def show_context(self, evt):
         self.view.PopupMenu(self.view.widgets['context'])
 
+    def action(self, evt):
+        self.action_choice.value = 'Action fired'
+
+    def action2(self, evt):
+        self.action_choice.value = 'Action2 fired'
+
+    def edit_cuts(self, evt):
+        dlg = wx.lib.agw.shortcuteditor.ShortcutEditor(self.view)
+        dlg.FromAcceleratorTable([('action %d', *k) for k in self.view.accel_table])
+        dlg.ShowModal()
+
 if __name__ == "__main__":
-    # wxml.builder.DEBUG_ERROR = True
-    # # wxml.builder.DEBUG_EVENT = True
+    #wxml.builder.DEBUG_ERROR = True
+    wxml.builder.DEBUG_EVENT = True
     #wxml.builder.DEBUG_COMPILE = True
-    # # wxml.builder.DEBUG_ATTR = True
-    # wxml.builder.DEBUG_BIND = True
+    #wxml.builder.DEBUG_ATTR = True
+    #wxml.builder.DEBUG_BIND = True
     #wxml.bind.DEBUG_UPDATE = True
 
-    wxml.run(View)
+    wxml.run(View, inspect=False)

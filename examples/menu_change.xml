@@ -27,9 +27,16 @@
 
         <StaticText label="(no_choice)" />
 
+        <StaticText label="(action_choice)" />
+
         <Button label="$Button" EventBindings.EVT_BUTTON="btn_pressed" />
 
         <Menu Name="context">
+            <Action handler="action" Shortcut="CTRL-1" />
+            <Action2 handler="action2" Shortcut="CTRL-2" />
+
+            <___ />
+
             <First>
                 <Config>
                     <Enabled value="(check_one)" />
@@ -68,4 +75,8 @@
             <EVT_CONTEXT_MENU handler="show_context" />
         </EventBindings>
     </Panel>
+
+    <Config>
+        <SetInitialSize size="400, 700" />
+    </Config>
 </Frame>
