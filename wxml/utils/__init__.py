@@ -3,6 +3,7 @@ import re
 import glob
 import wx
 import sys
+import wxml.bind
 
 def convert_path(path):
     path = re.sub(r'^([A-Z])\$', r'\1:', path)
@@ -56,3 +57,17 @@ class IconGroup(object):
 
     add = Add
     add_many = AddMany
+
+class NamedTupleSerializer(wxml.bind.BindValueSerializer):
+    def __init__(self, klass_obj):
+        self._klass = klass_obj
+
+    def deserialize(self, value):
+        if value is None:
+            return None
+        else:
+            return self._klass(**value)
+
+    def serialize(self, value):
+        out =  dict(value._asdict())
+        return out

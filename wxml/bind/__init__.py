@@ -87,62 +87,72 @@ class DataStore:
     _map = {}
     counter = 0
 
-    @classmethod
-    def _store_file(cls):
+    @staticmethod
+    def _store_file():
         filename = os.path.join(DataStore.Directory, '%s.store.json' % os.path.splitext(os.path.basename(sys.modules['__main__'].__file__))[0])
         return filename
 
-    @classmethod
-    def _load(cls):
-        if os.path.exists(cls._store_file()):
+    @staticmethod
+    def _load():
+        if os.path.exists(DataStore._store_file()):
             try:
-                with open(cls._store_file(), 'r') as fp:
+                with open(DataStore._store_file(), 'r') as fp:
                     data = json.loads(fp.read())
-                    cls.store = data
+                    DataStore.store = data
                     if DEBUG_STORE:
-                        print('Store File loaded from %s' % cls._store_file())
+                        print('Store File loaded from %s' % DataStore._store_file())
             except Exception:
-                cls.store = {}
+                DataStore.store = {}
         else:
-            cls.store = {}
+            DataStore.store = {}
 
-    @classmethod
-    def save(cls):
-        if len(cls._map) > 0:
-            with open(cls._store_file(), 'w') as fp:
+    @staticmethod
+    def save():
+        if len(DataStore._map) > 0:
+            with open(DataStore._store_file(), 'w') as fp:
                 state = {
-                    k: b.value
-                    for k, b in cls._map.items()
+                    k: b.save()
+                    for k, b in DataStore._map.items()
                 }
                 print(json.dumps(state, indent=4), file=fp)
 
-    @classmethod
-    def get(cls, bind):
-        if cls.store is None:
-            cls._load()
+    @staticmethod
+    def get(bind):
+        if DataStore.store is None:
+            DataStore._load()
 
         if bind.name is None:
-            name = 'value-%d' % cls.counter
-            cls.counter += 1
+            name = 'value-%d' % DataStore.counter
+            DataStore.counter += 1
         else:
             name = bind.name
 
-        cls._map[name] = bind
-        val = cls.store.get(name)
+        DataStore._map[name] = bind
+        val = bind.load(DataStore.store.get(name))
 
         if DEBUG_STORE:
             print('store.get(%s) = %s' % (name, val))
 
         return val
 
+class BindValueSerializer(object):
+    def serialize(self, value):
+        raise NotImplementedError('implement serialize in child')
+
+    def deserialize(self, value):
+        raise NotImplementedError('implement deserialize in child')
+
+
 class BindValue(object):
-    def __init__(self, value, name=None, parent=None, serialize=False, trace=False):
+    def __init__(self, value, name=None, parent=None, serialize=False, trace=False, serializer : Optional[BindValueSerializer]=None):
         if serialize is True and name is None:
             raise ValueError('BindValue: name cannot be None when serialize is True')
 
         self._value = value
         self.name: str = name
         self._trace = trace
+
+        self._serializer = serializer
 
         self.serialize = serialize
         if self.serialize:
@@ -166,6 +176,18 @@ class BindValue(object):
                 p.add_target(self, 'value')
             elif isinstance(p, Transformer):
                 p.bound.add_target(p, p.from_widget)
+
+    def load(self, value):
+        if self._serializer is not None:
+            return self._serializer.deserialize(value)
+        else:
+            return value
+
+    def save(self):
+        if self._serializer is not None:
+            return self._serializer.serialize(self.value)
+        else:
+            return self.value
 
     def add_target(self, obj, attr, transform=None, arguments=None):
         self.targets.append(BindTarget(obj, attr, transform, arguments))
@@ -267,8 +289,8 @@ class BindValue(object):
 
 
 class ArrayBindValue(BindValue):
-    def __init__(self, array: List, name=None, parent=None, serialize=False, trace=False, preserve=True):
-        super().__init__(array, name=name, parent=parent, serialize=serialize, trace=trace)
+    def __init__(self, array: List, name=None, parent=None, serialize=False, trace=False, preserve=True, serializer=None):
+        super().__init__(array, name=name, parent=parent, serialize=serialize, trace=trace, serializer=serializer)
         self.preserve = preserve
         self.index = BindValue(
             0,
@@ -353,45 +375,9 @@ class DynamicArrayBindValue(DynamicValue, ArrayBindValue):
     """
 
     def __init__(self, *listeners : List[BindValue], update:Callable = None,
-                 name:str=None, trace=False, preserve=True):
+                 name : str=None, trace=False, preserve=True):
         super().__init__(*listeners, name=name, update=update, trace=trace)
         self.preserve = preserve
-        #self.preserve = preserve
-        #self.index = BindValue(0, name='%s.index' % name if name is not None else None, trace=trace)
-        #self.item = DynamicValue(
-        #    self,
-        #    update=self._update_selected,
-        #    trace=trace,
-        #   name='%s.item' % name if name is not None else None
-        #)
-        #self.after_changed += self._set_index
-        #self.index.touch()
-
-    # def _update_selected(self):
-        # try:
-            # return self.value[self.index.value]
-        # except (KeyError, IndexError):
-            # return None
-
-    # def _set_index(self, e):
-        # if not self.preserve:
-            # self.index.value = 0
-            # self.index.touch()
-            # return
-
-        # # at this point, the item has already been changed
-        # # so we need to use the previous item
-        # prev = self.item._previous
-
-        # if prev in self.value:
-            # new_idx = self.value.index(prev)
-            # if new_idx == self.index.value:
-                # self.index.touch()
-            # else:
-                # self.index.value = new_idx
-        # else:
-            # self.index.value = max(0, min(len(self.value), self.index.value))
-        # print(self.index.value, self.item.value)
 
 class Transformer(object):
     def __init__(self, bind_value: BindValue):
