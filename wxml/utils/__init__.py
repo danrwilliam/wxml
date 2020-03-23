@@ -52,7 +52,7 @@ class IconGroup(object):
         key = key.replace(' ', '_')
 
         if not hasattr(self, key):
-            icon = ico = wx.Icon(path)
+            icon = ico = wx.Image(path)
             setattr(self, key, icon)
 
     add = Add
