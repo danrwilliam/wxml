@@ -16,7 +16,7 @@ class ErrorViewModel(ViewModel):
 
     def get_message_detail(self, v: int):
         if 0 <= v < len(self.msg_detail):
-            return self.msg_detail[v]
+            return str(self.msg_detail[v])
         else:
             return ''
 

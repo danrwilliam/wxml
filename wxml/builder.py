@@ -9,7 +9,7 @@ import ast
 import functools
 import threading
 import re
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 import traceback
 import logging
 import enum
@@ -26,6 +26,7 @@ DEBUG_COMPILE = False
 DEBUG_TIME = False
 DEBUG_BIND = False
 DEBUG_ERROR = False
+DEBUG_ERROR_UI = True
 DEBUG_EVENT = False
 
 AutoImportedPackages = set()
@@ -73,7 +74,40 @@ class Control(object):
     Registry = {}
 
     def __init__(self, class_obj):
+        self._path = full_class_path(class_obj)
+        self._class_obj = class_obj
         Control.Registry[full_class_path(class_obj)] = class_obj
+
+    def __call__(self, parent, *args, **kwargs):
+        if not hasattr(self._class_obj, '_ctor'):
+            raise Exception('XML for component %s was not loaded' % self._class_obj)
+
+        builder = UiBuilder(self._class_obj.__name__)
+        builder._view_model_is_root = True
+        builder.init_build(None)
+
+        obj = builder.wx_node(self._class_obj._ctor, parent, actual_obj=self._class_obj)
+        for c in self._class_obj._ctor:
+            builder.compile(c, obj, {})
+
+        assert obj is not None
+
+        builder.post_build(obj)
+
+        if parent.Sizer is not None:
+            parent.Layout()
+
+        if hasattr(obj, 'ready'):
+            obj.ready()
+
+        return obj
+
+    def __str__(self):
+        return '<%s(%s) object at 0x%x>' % (
+            full_class_path(self.__class__),
+            full_class_path(self._class_obj),
+            id(self)
+        )
 
 def wx_getattr(value):
     if hasattr(wx, value):
@@ -135,8 +169,9 @@ class UiBuilder(object):
 
     def __init__(self, filename):
         self.filename = filename
+        self._view_model_is_root = False
 
-    def build(self, view_model, parent=None, sizer_flags=None):
+    def init_build(self, view_model):
         self.view_model = view_model
 
         self.models = {}
@@ -150,21 +185,7 @@ class UiBuilder(object):
 
         self.menu_ids = {}
 
-        try:
-            tree = ET.parse(self.filename)
-        except Exception as ex:
-            import traceback
-            self.construction_errors.append([ex, 'PARSE', None, traceback.format_exc()])
-            return None
-
-        root = tree.getroot()
-        root.attrib.update(sizer_flags or {})
-
-        self.controller = root.attrib.pop('Controller', '__main__')
-
-        obj = UiBuilder.compile(self, root, parent)
-        if obj is None:
-            obj = getattr(self, 'constructed')
+    def post_build(self, obj):
         obj.widgets = {}
         obj.models = {}
 
@@ -191,6 +212,27 @@ class UiBuilder(object):
         #     v.update_target(None)
 
         UiBuilder.debug_names.update(self.debug_names)
+
+    def build(self, view_model, parent=None, sizer_flags=None):
+        self.init_build(view_model)
+
+        try:
+            tree = ET.parse(self.filename)
+        except Exception as ex:
+            import traceback
+            self.construction_errors.append([ex, 'PARSE', None, traceback.format_exc()])
+            return None
+
+        root = tree.getroot()
+        root.attrib.update(sizer_flags or {})
+
+        self.controller = root.attrib.pop('Controller', '__main__')
+
+        obj = UiBuilder.compile(self, root, parent)
+        if obj is None:
+            obj = getattr(self, 'constructed')
+
+        self.post_build(obj)
 
         return obj
 
@@ -467,8 +509,8 @@ class UiBuilder(object):
                 post_action(self, node, parent_obj, params)
             except Exception as ex:
                 if DEBUG_ERROR:
-                    print('ERROR', '[tag post: %s]' % node.tag, '[parent: %s]' % parent, 'exception:', ex)
-                self.construction_errors.append([ex, node + '.post', parent, traceback.format_exc()])
+                    print('ERROR', '[%s.post]' % node.tag, '[parent: %s]' % parent, 'exception:', ex)
+                self.construction_errors.append([ex, node.tag + '.post', parent, traceback.format_exc()])
 
         return parent_obj
 
@@ -513,6 +555,41 @@ class UiBuilder(object):
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except AttributeError:
             pass
+
+    @Node.filter(lambda n: n.tag in Control.Registry and n.tag in UiBuilder.components)
+    def wx_custom_control_with_xml(self, node, parent=None, params=None, root=wx, tag=None):
+        class_obj = Control.Registry[node.tag]
+        ctor = class_obj._ctor
+
+        builder = UiBuilder(class_obj.__name__)
+        builder._view_model_is_root = True
+        builder.init_build(None)
+
+        use_node = ET.Element(node.tag)
+        use_node.attrib.update(ctor.attrib)
+        use_node.attrib.update(node.attrib)
+
+        for c in ctor:
+            use_node.append(c)
+
+        for child in node:
+            use_node.append(child)
+
+        obj = builder.wx_node(use_node, parent, params, actual_obj=class_obj)
+        for c in class_obj._ctor:
+            builder.compile(c, obj, {})
+
+        builder.post_build(obj)
+
+        var_name = node.attrib.get('Name', '%s_%d' % (tag or node.tag, self.counter[class_obj]))
+        self.counter[class_obj] += 1
+        self.debug_names[obj] = var_name
+        self.children[var_name] = obj
+
+        if isinstance(obj, (wx.Panel, wx.Frame)):
+            self.wx_setsizer(use_node, obj, params)
+
+        return obj
 
     @Node.filter(lambda n: n.tag in UiBuilder.components)
     def create_component(self, node, parent, params):
@@ -568,6 +645,10 @@ class UiBuilder(object):
             del self.overrides
 
         return None
+
+    @Node.filter(lambda n: n.tag in Control.Registry)
+    def wx_custom_control(self, node, parent=None, params=None, root=wx, tag=None):
+        return self.wx_node(node, parent, params, actual_obj=Control.Registry[node.tag])
 
     @Node.node('ImageList')
     def make_image_list(self, node, parent, params):
@@ -859,10 +940,6 @@ class UiBuilder(object):
         else:
             return self.wx_node(node, parent, params, tag=node.attrib.pop('_class'))
 
-    @Node.filter(lambda n: n.tag in Control.Registry)
-    def wx_custom_control(self, node, parent=None, params=None, root=wx, tag=None):
-        return self.wx_node(node, parent, params, actual_obj=Control.Registry[node.tag])
-
     @Node.filter(lambda n: hasattr(wx, n.tag))
     def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None,
                 parentless=False, skip_sizer=False):
@@ -893,13 +970,16 @@ class UiBuilder(object):
             if isinstance(v, tuple) and isinstance(v[0], bind.BindValue)
         }
 
-        for k, (b, e, t, r) in bindings.items():
-            args[k] = str(b)
+        for k, (b, e, to_widget, r) in bindings.items():
+            args[k] = b.value if to_widget is None else to_widget.to_widget(b.value)
 
         if parentless:
             this_obj = class_obj(**args)
         else:
             this_obj = class_obj(parent, **args)
+
+        if self._view_model_is_root and self.view_model is None:
+            self.view_model = this_obj
 
         if hasattr(this_obj, 'SetDoubleBuffered'):
             this_obj.SetDoubleBuffered(True)
@@ -942,10 +1022,8 @@ class UiBuilder(object):
                         if value == () or value:
                             f()
                     else:
-                        arg = [value] if not isinstance(value, list) and not isinstance(value, tuple) else value
+                        arg = [value] if not isinstance(value, (tuple, list)) else value
                         s = f(*arg)
-                    # else:
-                    #     s = f()
                 parent.Sizer.Add(this_obj, s)
             else:
                 parent.Sizer.Add(this_obj, **{k.lower(): v for k, v in sizer_args.items()})
@@ -971,7 +1049,6 @@ class UiBuilder(object):
                 elem_node.attrib['handler'] = node.attrib[k]
                 auto_config.append(elem_node)
         self.set_up_events(auto_config, this_obj, params)
-
 
         return this_obj
 
@@ -1033,7 +1110,7 @@ class UiBuilder(object):
 
     @NodePost.node('Frame', 'Panel')
     def wx_setsizer(self, node, parent, params):
-        if parent.Sizer is not None:
+        if parent.Sizer is not None and getattr(self.view_model, 'layout', '') == 'SetSizerAndFit':
             parent.SetSizerAndFit(parent.Sizer)
 
     @Node.node('Include')
@@ -1094,7 +1171,9 @@ class UiBuilder(object):
 
                     def cleanup_trigger(value, handler):
                         value.after_changed -= handler
-                    self.view_model.on_close += lambda value=value, handler=handler: cleanup_trigger(value, handler)
+
+                    if hasattr(self.view_model, 'on_close'):
+                        self.view_model.on_close += lambda value=value, handler=handler: cleanup_trigger(value, handler)
 
     @Node.node('Styles')
     def push_styles(self, node, parent, params):
@@ -1395,7 +1474,6 @@ class UiBuilder(object):
         inner.attrib.update(kwargs)
         self.setup_parent_node(inner, parent, params)
 
-
     @Node.node('ToolBar')
     def create_toolbar(self, node, parent, params, top=False):
         kwargs = self.eval_args(node.attrib)
@@ -1511,13 +1589,38 @@ class UiBuilder(object):
             skip_sizer=True
         )
 
+def load_components(filename : str):
+    """
+        load defined components from the filename. this is used for
+        loading library xml files that are not used for an actual UI.
+    """
+
+    builder = UiBuilder(filename)
+    builder.init_build(None)
+
+    import inspect
+    stack = inspect.stack()
+    caller = stack[1]
+    calling_module = inspect.getmodule(caller[0])
+
+    is_main = calling_module.__name__ == '__main__'
+    module_name = calling_module.__name__
+
+    tree = ET.parse(filename)
+    tree.getroot()
+    for component in tree.findall('.//Component'):
+        # change name, so it's referred to the same name as the class
+        if not is_main:
+            component.attrib['Name'] = '%s.%s' % (module_name, component.attrib['Name'])
+        builder.register_component(component, None, {})
 
 class ViewModel(object):
-    def __init__(self, defer: bool=False) -> None:
+    def __init__(self, defer: bool=False, parent : Optional[wx.Object] = None) -> None:
+        self._compat_flags = {}
         self.on_close = Event('on_close')
         self.initialize()
         if not defer:
-            self.build()
+            self.build(parent=parent)
 
     def initialize(self):
         """
@@ -1589,7 +1692,7 @@ class ViewModel(object):
                 print('%s construction time: %.2f seconds' % (self.filename, end - start))
 
 
-        if DEBUG_ERROR:
+        if DEBUG_ERROR and DEBUG_ERROR_UI:
             for ex, node, parent, trace in ui.construction_errors:
                 ErrorViewModel.instance().add_error(
                     node,

@@ -289,11 +289,21 @@ class BindValue(object):
 
 
 class ArrayBindValue(BindValue):
-    def __init__(self, array: List, name=None, parent=None, serialize=False, trace=False, preserve=True, serializer=None):
+    def __init__(self, array: List, name=None, parent=None, serialize=False, trace=False, preserve=True, serializer=None,
+                 default_index : int = 0, default=None):
         super().__init__(array, name=name, parent=parent, serialize=serialize, trace=trace, serializer=serializer)
         self.preserve = preserve
+
+        if default is not None:
+            try:
+                def_index = self.array.index(default)
+            except ValueError:
+                def_index = default_index
+        else:
+            def_index = default_index
+
         self.index = BindValue(
-            0,
+            def_index,
             name='%s-sel' % name if name is not None else None,
             serialize=serialize,
             trace=trace
