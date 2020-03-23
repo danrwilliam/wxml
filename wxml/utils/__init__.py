@@ -31,7 +31,7 @@ class ImgGroup(object):
         key = key.replace(' ', '_')
 
         if not hasattr(self, key):
-            bmp = wx.Bitmap(path)
+            bmp = wx.Bitmap(wx.Image(path))
             if mask is not None:
                 mk = wx.Mask(bmp, mask)
                 bmp.SetMask(mk)
