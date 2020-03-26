@@ -42,7 +42,6 @@ class CustomNodeType(enum.Enum):
 class Passthrough(object):
     pass
 
-
 class Ui(object):
     Registry = {}
     _imported = set()
@@ -86,7 +85,13 @@ class Control(object):
         builder._view_model_is_root = True
         builder.init_build(None)
 
-        obj = builder.wx_node(self._class_obj._ctor, parent, actual_obj=self._class_obj)
+        obj = builder.wx_node(
+            self._class_obj._ctor,
+            parent,
+            actual_obj=self._class_obj,
+            extra_args=args,
+            extra_kwargs=kwargs
+        )
         for c in self._class_obj._ctor:
             builder.compile(c, obj, {})
 
@@ -163,13 +168,19 @@ class UiBuilder(object):
     """
 
     components = {}
-
     debug_names = {}
     counter = collections.defaultdict(lambda: 0)
+
+    # actions that run when the builder is created
+    _queued = []
 
     def __init__(self, filename):
         self.filename = filename
         self._view_model_is_root = False
+
+    @staticmethod
+    def run_at_start(func, *args, **kwargs):
+        UiBuilder._queued.append((func, args, kwargs))
 
     def init_build(self, view_model):
         self.view_model = view_model
@@ -182,8 +193,15 @@ class UiBuilder(object):
         self.loop_vars = {}
         self.construction_errors = []
         self.values_to_update = []
+        self.controller = '__main__'
 
         self.menu_ids = {}
+
+        # try and run queued actions
+        if wx.App.Get() is not None and UiBuilder._queued is not None:
+            for f, args, kwargs in UiBuilder._queued:
+                f(*args, **kwargs)
+            UiBuilder._queued = None
 
     def post_build(self, obj):
         obj.widgets = {}
@@ -942,7 +960,7 @@ class UiBuilder(object):
 
     @Node.filter(lambda n: hasattr(wx, n.tag))
     def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None,
-                parentless=False, skip_sizer=False):
+                parentless=False, skip_sizer=False, extra_args=None, extra_kwargs=None):
         params = params or {}
 
         if actual_obj is not None:
@@ -973,10 +991,18 @@ class UiBuilder(object):
         for k, (b, e, to_widget, r) in bindings.items():
             args[k] = b.value if to_widget is None else to_widget.to_widget(b.value)
 
-        if parentless:
-            this_obj = class_obj(**args)
+        if extra_kwargs is not None:
+            args.update(extra_kwargs)
+        if extra_args is not None:
+            p_args = extra_args
         else:
-            this_obj = class_obj(parent, **args)
+            p_args = ()
+
+
+        if parentless:
+            this_obj = class_obj(*p_args, **args)
+        else:
+            this_obj = class_obj(parent, *p_args, **args)
 
         if self._view_model_is_root and self.view_model is None:
             self.view_model = this_obj
@@ -1157,7 +1183,10 @@ class UiBuilder(object):
                     args = self.eval_args(n.attrib, exclude=['on'])
                     func = getattr(parent, n.tag)
 
-                    def on_changed(args, func, new_value):
+                    def on_changed(args, func, new_value, parent=parent):
+                        if not parent:
+                            return
+
                         send = {}
                         for k, v in args.items():
                             if ((isinstance(v, tuple) and isinstance(v[0], bind.BindValue)) or
@@ -1166,6 +1195,7 @@ class UiBuilder(object):
                             else:
                                 send[k] = v
                         func(**send)
+
                     handler = functools.partial(on_changed, args, func)
                     value.after_changed += handler
 
@@ -1613,6 +1643,15 @@ def load_components(filename : str):
         if not is_main:
             component.attrib['Name'] = '%s.%s' % (module_name, component.attrib['Name'])
         builder.register_component(component, None, {})
+
+    for mixin in tree.findall('.//Mixin'):
+        builder.register_component(component, None, {})
+
+    for bmp in tree.findall('.//Bitmaps'):
+        UiBuilder.run_at_start(builder.images, bmp, None, {})
+
+    for ico in tree.findall('.//Icons'):
+        UiBuilder.run_at_start(builder.icons, ico, None, {})
 
 class ViewModel(object):
     def __init__(self, defer: bool=False, parent : Optional[wx.Object] = None) -> None:

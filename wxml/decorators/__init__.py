@@ -6,6 +6,16 @@ import wx
 
 from wxml.event import Event
 
+_stop_block_ui = threading.Event()
+
+def stop_bind_updates():
+    """
+
+    """
+    _stop_block_ui.set()
+
+def resume_bind_updates():
+    _stop_block_ui.clear()
 
 def invoke_ui(func):
     """
@@ -33,7 +43,7 @@ def block_ui(func):
     def wraps(*args, **kwargs):
         if wx.IsMainThread():
             return func(*args, **kwargs)
-        else:
+        elif not _stop_block_ui.is_set():
             q = queue.Queue()
             def wraps(q, func, *args, **kwargs):
                 try:
