@@ -1707,7 +1707,7 @@ class ViewModel(object):
             to this view model.
         """
 
-        start = time.perf_counter()
+        start = time.perf_counter_ns()
 
         if not os.path.exists(self.filename):
             raise IOError('XML file not found: %s' % self.filename)
@@ -1725,10 +1725,16 @@ class ViewModel(object):
 
             self.view.Bind(wx.EVT_CLOSE, self.close)
 
-            end = time.perf_counter()
+            end = time.perf_counter_ns()
+
+            for v in ui.values_to_update:
+                v.touch()
+
+            if self.view is not None:
+                self.ready()
 
             if DEBUG_TIME:
-                print('%s construction time: %.2f seconds' % (self.filename, end - start))
+                print('%s construction time: %.2f seconds' % (self.filename, (end - start) * 1e-9))
 
 
         if DEBUG_ERROR and DEBUG_ERROR_UI:
@@ -1743,12 +1749,6 @@ class ViewModel(object):
 
             if len(ui.construction_errors):
                 ErrorViewModel.instance().view.Show()
-
-        for v in ui.values_to_update:
-            v.touch()
-
-        if self.view is not None:
-            self.ready()
 
         return self.view
 

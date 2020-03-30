@@ -296,7 +296,7 @@ class ArrayBindValue(BindValue):
 
         if default is not None:
             try:
-                def_index = self.array.index(default)
+                def_index = self.value.index(default)
             except ValueError:
                 def_index = default_index
         else:

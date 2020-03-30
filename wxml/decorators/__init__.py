@@ -10,7 +10,9 @@ _stop_block_ui = threading.Event()
 
 def stop_bind_updates():
     """
-
+        Prevents block_ui decorator from sending events to the
+        main thread. This prevents possible deadlocks when
+        joining threads (that update bind values) at shutdown.
     """
     _stop_block_ui.set()
 
@@ -25,7 +27,6 @@ def invoke_ui(func):
         use block_ui if you want to wait or get the return value.
     """
     def wraps(*args, **kwargs):
-        # print(func.__name__, threading.current_thread().name)
         if not wx.IsMainThread():
             wx.CallAfter(func, *args, **kwargs)
         else:
