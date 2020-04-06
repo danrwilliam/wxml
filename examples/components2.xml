@@ -8,11 +8,19 @@
 -->
 
 <Frame>
+    <Mixin Name="UiEnable">
+        <Config>
+            <Enabled value="(enabled)" />
+        </Config>
+    </Mixin>
+
     <Component Name="LabelTextCtrl">
-        <BoxSizer orient="{:Direction=VERTICAL}" Expand="" Border="ALL, 1" />
+        <BoxSizer orient="{:Direction=VERTICAL}" Expand="False" Border="ALL, 1" Center="" />
 
         <StaticText label="{:Label}" />
-        <TextCtrl value="(:Text:EVT_TEXT)" />
+        <TextCtrl value="(:Text:EVT_TEXT)" Proportion="1">
+            <UiEnable />
+        </TextCtrl>
     </Component>
 
     <Config>
@@ -22,16 +30,21 @@
         </CreateStatusBar>
     </Config>
 
-    <Panel>
+    <Panel Name="container">
         <BoxSizer orient="VERTICAL" Border="ALL, 4" />
 
-        <LabelTextCtrl Label="Username" Text="{username}" />
-        <LabelTextCtrl Label="Password" Text="{password}" />
+        <LabelTextCtrl Label="Username" Text="{username}" Direction="HORIZONTAL" Expand="" Name="username_ctrl" />
+        <LabelTextCtrl Label="Password" Text="{password}"  Name="password_ctrl"/>
 
-        <StaticText label="You entered" />
+        <StaticText label="You entered:" />
 
         <StaticText label="(username)" />
-        <StaticText label="(password)" />
+        <StaticText label="(password[hide])" />
+        
+        <StaticTextEx label="MY CUSTOM CONTROL | YES | NO" />
+        
+        <CheckBox Config.Value="(enabled:EVT_CHECKBOX)"
+                  label="Allow input" />
     </Panel>
 
 </Frame>

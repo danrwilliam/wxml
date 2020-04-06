@@ -13,6 +13,7 @@ from typing import NamedTuple, Optional
 import traceback
 import logging
 import enum
+import platform
 
 from wxml.event import Event
 from wxml.decorators import invoke_ui, block_ui
@@ -77,22 +78,28 @@ class Control(object):
         self._class_obj = class_obj
         Control.Registry[full_class_path(class_obj)] = class_obj
 
-    def __call__(self, parent, *args, **kwargs):
-        if not hasattr(self._class_obj, '_ctor'):
-            raise Exception('XML for component %s was not loaded' % self._class_obj)
+    def __call__(self, parent, *args, auto_sizer=True, **kwargs):
+        # see if there is XML associated with this class
+        ctor = getattr(self._class_obj, '_ctor', None)
+        #if ctor is None:
+        #    return self._class_obj(parent, *args, **kwargs)
 
         builder = UiBuilder(self._class_obj.__name__)
         builder._view_model_is_root = True
         builder.init_build(None)
+        
+        if ctor is  None:
+            ctor = ET.Element('Fake')
 
         obj = builder.wx_node(
-            self._class_obj._ctor,
+            ctor,
             parent,
             actual_obj=self._class_obj,
             extra_args=args,
-            extra_kwargs=kwargs
+            extra_kwargs=kwargs,
+            skip_sizer=not auto_sizer
         )
-        for c in self._class_obj._ctor:
+        for c in ctor:
             builder.compile(c, obj, {})
 
         assert obj is not None
@@ -758,7 +765,6 @@ class UiBuilder(object):
             for k in remove_binding:
                 bindings.pop(k)
 
-
             obj = call(**call_args)
 
             for name, (binding, event, transform, receiver) in bindings.items():
@@ -1025,6 +1031,7 @@ class UiBuilder(object):
         self.counter[class_obj] += 1
         self.debug_names[this_obj] = var_name
         self.children[var_name] = this_obj
+        this_obj.Name = var_name
 
         if not skip_sizer and parent is not None and getattr(parent, 'Sizer', None) is not None:
             sizer_args = {k: v for k, v in getattr(parent.Sizer, 'default_flags', {}).items()}
