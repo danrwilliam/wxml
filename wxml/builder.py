@@ -1135,6 +1135,25 @@ class UiBuilder(object):
 
         return method
 
+    FONT_INFO_ATTRIBUTES = [d for d in dir(wx.FontInfo) if not d.startswith('_')]
+
+    @Node.node('Font')
+    def wx_font_setup(self, node, parent, params):
+        point_size = node.attrib.get('pointSize')
+        if point_size is not None:
+            info = wx.FontInfo(int(point_size))
+        else:
+            info = wx.FontInfo()
+
+        for child in node:
+            if child.tag in self.FONT_INFO_ATTRIBUTES:
+                args = self.eval_args(child)
+                info = getattr(info, child.tag)(**args)
+        
+        font_setter = getattr(parent, 'SetFont', None)
+        if font_setter is not None:
+            font_setter(wx.Font(info))
+
     @Node.filter(lambda n: n.tag.startswith('wx.'))
     def wx_import_node(self, node, parent, params):
         module, class_name = node.tag.rsplit('.', 1)
