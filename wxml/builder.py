@@ -14,6 +14,7 @@ import traceback
 import logging
 import enum
 import platform
+from pathlib import Path
 
 from wxml.event import Event
 from wxml.decorators import invoke_ui, block_ui
@@ -87,7 +88,7 @@ class Control(object):
         builder = UiBuilder(self._class_obj.__name__)
         builder._view_model_is_root = True
         builder.init_build(None)
-        
+
         if ctor is  None:
             ctor = ET.Element('Fake')
 
@@ -495,6 +496,25 @@ class UiBuilder(object):
 
         return evaled
 
+    def eval_args_kwargs(self, args, exclude=None, prefix=None, only_args=None, excl_prefix=None):
+        arg_map = {}
+        kwargs = {}
+
+        for key, value in self.eval_args(args, exclude, prefix, only_args, excl_prefix).items():
+            if isinstance(key, int):
+                arg_map[key] = value
+            else:
+                kwargs[key] = value
+
+        if arg_map:
+            args = [None] * (1 + max(arg_map))
+            for idx, val in arg_map.items():
+                args[idx] = val
+        else:
+            args = []
+
+        return args, kwargs
+
     def compile(self, node, parent=None, params=None, inject=None):
         action = Node.action_for(node)
 
@@ -569,7 +589,8 @@ class UiBuilder(object):
 
     @Node.node('ShowIconStandalone')
     def show_icon_standalone(self, node, parent, params):
-        myappid = 'python.script.%s' % os.path.basename(sys.modules['__main__'].__file__)
+        path = Path(sys.modules['__main__'].__file__)
+        myappid = 'python.script.%s' % '.'.join(path.parts[-2:])
 
         try:
             import ctypes
@@ -984,7 +1005,7 @@ class UiBuilder(object):
         args = self.eval_args(style_args, exclude=self.SizerFlags(parent) + ['Name', 'ChildParent'])
         args.update(self.eval_args(
             node.attrib,
-            excl_prefix=["Config.", 'EventBindings.'],
+            excl_prefix=['Config.', 'EventBindings.', 'Font.', 'FontInfo.'],
             exclude=self.SizerFlags(parent) + ['Name', 'ChildParent']
         ))
 
@@ -1081,7 +1102,36 @@ class UiBuilder(object):
                 elem_node = ET.Element(elem)
                 elem_node.attrib['handler'] = node.attrib[k]
                 auto_config.append(elem_node)
-        self.set_up_events(auto_config, this_obj, params)
+        if auto_config:
+            self.set_up_events(auto_config, this_obj, params)
+
+        font_config = ET.Element('Font')
+        idx = len('Font.')
+        for k in node.attrib:
+            if k.startswith('Font.'):
+                elem = k[idx:]
+                elem_node = ET.Element(elem)
+                if node.attrib[k] != '':
+                    elem_node.attrib[0] = node.attrib[k]
+                font_config.append(elem_node)
+        if font_config:
+            self.modify_font(font_config, this_obj, params)
+
+        font_info_config = ET.Element('FontInfo')
+        idx = len('FontInfo.')
+        for k in node.attrib:
+            if k.startswith('FontInfo.'):
+                elem = k[idx:]
+                print(elem)
+                if elem in ('pointSize', 'pixelSize'):
+                    font_info_config.attrib[elem] = node.attrib[k]
+                else:
+                    elem_node = ET.Element(elem)
+                    if node.attrib[k] != '':
+                        elem_node.attrib[0] = node.attrib[k]
+                    font_info_config.append(elem_node)
+        if font_info_config:
+            self.wx_font_setup(font_info_config, this_obj, params)
 
         return this_obj
 
@@ -1138,18 +1188,46 @@ class UiBuilder(object):
     FONT_INFO_ATTRIBUTES = [d for d in dir(wx.FontInfo) if not d.startswith('_')]
 
     @Node.node('Font')
+    def modify_font(self, node, parent, params):
+        """
+            modifies the parent object's Font property
+        """
+
+        font = parent.Font
+        for child in node:
+            func = getattr(font, child.tag)
+            if callable(func):
+                args, kwargs = self.eval_args_kwargs(child.attrib)
+                retval = func(*args, **kwargs)
+                if isinstance(retval, wx.Font):
+                    font = retval
+            else:
+                args = self.eval_args(child.attrib, only_args=['value'])
+                setattr(font, child.tag, args['value'])
+
+        parent.Font = font
+
+    @Node.node('FontInfo')
     def wx_font_setup(self, node, parent, params):
-        point_size = node.attrib.get('pointSize')
-        if point_size is not None:
-            info = wx.FontInfo(int(point_size))
+        """
+            creates a FontInfo object, configures it, and then
+            constructs a new Font object that is assigned to the
+            parent object
+        """
+
+        args = self.eval_args(node.attrib)
+        if 'pointSize' in args:
+            info = wx.FontInfo(args['pointSize'])
+        elif 'pixelSize' in args:
+            info = xw.FontInfo(args['pixelSize'])
         else:
             info = wx.FontInfo()
 
         for child in node:
             if child.tag in self.FONT_INFO_ATTRIBUTES:
-                args = self.eval_args(child)
-                info = getattr(info, child.tag)(**args)
-        
+                args, kwargs = self.eval_args_kwargs(child.attrib)
+                info = getattr(info, child.tag)(*args, **kwargs)
+
         font_setter = getattr(parent, 'SetFont', None)
         if font_setter is not None:
             font_setter(wx.Font(info))

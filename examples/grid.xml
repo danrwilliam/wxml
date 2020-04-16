@@ -1,4 +1,8 @@
 <Frame>
+    <!-- <FontInfo pointSize="10">
+        <FaceName faceName="Segoe UI" />
+    </FontInfo> -->
+
     <Panel>
         <BoxSizer orient="VERTICAL" Expand="" Border="ALL, 5" />
 
@@ -9,9 +13,13 @@
             </EventBindings>
         </Button>
         <TextCtrl value="(text:EVT_TEXT[str.lower])"  />
-        <StaticText label="(text)" />
-        <StaticText label="(text[str.upper])" />
-        <StaticText label="(text[str.title])" />
+        <StaticText label="(text)"
+                    Font.Bold=""
+                    Font.Underlined="" />
+        <StaticText label="(text[str.upper])"
+                    Font.MakeLarger="" />
+        <StaticText label="(text[str.title])"
+                    Font.SetPixelSize="(11, 5)" />
         <StaticText label="(text[str.lower])" />
         <TextCtrl>
             <Config>

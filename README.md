@@ -82,6 +82,42 @@ Like the `Config` node, a shortcut exists for the `EventBindings` one as well. T
 <Button EventBindings.EVT_BUTTON="pushed" Name="test" />
 ```
 
+#### Font, FontInfo
+
+These two nodes allow you to modify the font of a parent object.
+
+`Font` is for modifying the current font of the parent, and then assigning the updated object back
+to the parent.
+
+`FontInfo` is for building a new Font object with the [FontInfo](https://wxpython.org/Phoenix/docs/html/wx.FontInfo.html) class. The FontInfo object is built and then used to construct a new Font object. The new
+Font is then assigned to the parent object. Either `pointSize` or `pixelSize` can be specified when
+using this node.
+
+The empty string will be interpreted as `True` (like with sizer flag arguments).
+
+```
+<Button label="Click">
+    <Font>
+        <Bold />
+    </Font>
+</Button>
+<Button label="Click 2">
+    <FontInfo pointSize="12">
+        <FaceName faceName="Segoe UI" />
+    </FontInfo>
+</Button>
+
+<Button label="Click 3"
+        Font.Bold="" />
+
+<Button label="Click 4"
+        FontInfo.FaceName="Segoe UI" />
+```
+
+Bindings are not supported for these 2 node types.
+
+Both these nodes
+
 #### Styles
 
 This allows for the passing of arguments to all objects of a certain type. These arguments are used in the constructor or when adding to the sizer.
@@ -594,7 +630,7 @@ The following are flags that will echo information about the parsing, evaluation
 
 - `wxml.builder.DEBUG_EVAL`: Shows input strings and their evaluated output.
 - `wxml.builder.DEBUG_ATTR`: Shows attribute names, their string value, and the evaluated value.
-- `DEBUG_COMPILEwxml.builder.`: For each node in the document, shows what `wxml.builder` method was used to process the node.
+- `wxml.builder.DEBUG_COMPILE`: For each node in the document, shows what `wxml.builder` method was used to process the node.
 - `wxml.builder.DEBUG_TIME`: Prints how long the construction process took for each ViewModel built.
 - `wxml.builder.DEBUG_BIND`: Shows what bind values are bound to which object, its method or attribute, and the direction of the binding.
 - `wxml.builder.DEBUG_ERROR`: When true, the error viewer will display construction errors.
