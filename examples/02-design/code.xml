@@ -1,0 +1,14 @@
+<Frame>
+    <Panel>
+        <BoxSizer orient="VERTICAL" />
+        
+        <StaticText label="Example #2" />
+        
+        <Button label="Press">
+            <EventBindings>
+                <EVT_BUTTON handler="btn_press" />
+            </EventBindings>
+        </Button>
+
+    </Panel>
+</Frame>
