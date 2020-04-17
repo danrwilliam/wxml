@@ -1,10 +1,45 @@
 ## 1. Hello, World!
 
+This example shows how to start building a UI with wxml.
+
 ### Getting Started
 
-This shows how to start building a UI with wxml.
+`hello.xml` contains a simple UI, shown below.
 
-Run `<python> -m wxml hello.xml`
+```xml
+<Frame>
+    <StaticText label="Hello, world!" />
+</Frame>
+```
+
+All wxPython interfaces must contain a top level Frame window, and that is expressed with the `<Frame>` element. 
+All elements will use their parent object when built. 
+
+The `<StaticText>` element uses the Frame object as its parent, and gives the `label` value to its constructor.
+
+The equivalent Python code for the above UI is:
+
+```python
+import wx
+
+app = wx.App()
+
+frame = wx.Frame(None, wx.ID_ANY)
+text = wx.StaticText(frame, label='Hello, world')
+
+frame.Show(True)
+
+app.MainLoop()
+```
+
+### Running wxml
+
+The `wxml` package can build interfaces directly when given an Xml filename.
+
+This can be done with the following command:
+```bash 
+<python> -m wxml hello.xml
+```
 
 After running the above command, you should now see a window like the one below.
 
@@ -25,4 +60,3 @@ to something else (`"HELLO, WORLD!"`). After you save the file, the UI will rebu
 you can see your changes.
 
 ![picture of hello.xml in design mode after xml file was changed](screenshots/02.png)
-
