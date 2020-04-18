@@ -1,4 +1,4 @@
-<Frame>
+<Frame title="03 - Classes">
     <!-- create a panel to allow a sizer to be used -->
     <Panel>
         <!-- sizer will stack controls vertically -->

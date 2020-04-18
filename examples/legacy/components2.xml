@@ -40,9 +40,9 @@
 
         <StaticText label="(username)" />
         <StaticText label="(password[hide])" />
-        
+
         <StaticTextEx label="MY CUSTOM CONTROL | YES | NO" />
-        
+
         <CheckBox Config.Value="(enabled:EVT_CHECKBOX)"
                   label="Allow input" />
     </Panel>

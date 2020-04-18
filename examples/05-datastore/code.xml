@@ -1,0 +1,47 @@
+<Frame title="05 - DataStore">
+    <!-- create a panel to allow a sizer to be used -->
+    <Panel>
+        <!-- sizer will stack controls vertically -->
+        <FlexGridSizer cols="2" vgap="5" hgap="5" Border="ALL, 4" />
+
+        <StaticText label="One Time" />
+        <!-- braces means only use the value at construction time -->
+        <TextCtrl style="TE_READONLY" value="{dynamic}" Expand="" />
+
+        <StaticText label="One Way to Target" />
+        <!-- parantheses means update the target whenever the
+             bind value changes -->
+        <TextCtrl style="TE_READONLY" value="(dynamic)" Expand="" />
+
+        <StaticText label="Two Way" />
+        <!-- for two way bindings that update the bind value, the
+             event must be specified -->
+        <TextCtrl value="(entry:EVT_TEXT)" Expand="" />
+
+        <StaticText label="One Way to Source" />
+        <!-- one way to source bindings must use the Bind
+             attribute to declare it as one way to source. -->
+        <TextCtrl Expand="">
+            <Config>
+                <Value Bind="(entry:EVT_TEXT)" />
+            </Config>
+        </TextCtrl>
+
+        <StaticText />
+        <Button label="Press">
+            <!--
+                EventBindings is a special node where control events
+                can be subscribed to. handler is the attribute
+                that states which method should be called
+                when this event is fired.
+            -->
+            <EventBindings>
+                <EVT_BUTTON handler="btn_press" />
+            </EventBindings>
+        </Button>
+
+        <Config Item="sizer">
+            <AddGrowableCol idx="1" proportion="1" />
+        </Config>
+    </Panel>
+</Frame>

@@ -17,16 +17,17 @@ class TestVm(wxml.ViewModel):
     def ready(self):
         sizer = self.view.widgets['container'].Sizer
         s = StaticTextEx(self.view.widgets['container'], label='testing')
-        #sizer.Add(s)
-        #sizer.Layout()
 
     def append_usr(self, v):
         return 'user: %s' % v
     def append_pwd(self, v):
         return 'pwd: %s' % self.hide(v)
-    
+
     def hide(self, v):
         return '*' * len(v)
 
-
-wxml.run(TestVm, inspect=1)
+if __name__ == "__main__":
+    # wxml.builder.DEBUG_COMPILE=1
+    # wxml.builder.DEBUG_ATTR=1
+    # wxml.builder.DEBUG_EVAL=1
+    wxml.run(TestVm, inspect=0)

@@ -1,0 +1,69 @@
+<Frame title="06 - Components">
+    <!-- defines a component that inherits from Panel by default-->
+    <Component Name="Stack">
+        <BoxSizer orient="VERTICAL" Expand="" />
+    </Component>
+
+    <!-- components function as reusuable Xml interfaces -->
+    <Component Name="Header">
+        <StaticText label="This is header" />
+    </Component>
+
+    <!-- components can be customized using the special
+         argument syntax {:<name>} or (:<name>) for a binding -->
+    <Component Name="Header2" Parent="StaticText" label="{:header}" Font.Bold="" />
+
+    <Component Name="Header3">
+        <BoxSizer orient="VERTICAL" Expand="" />
+        <StaticText label="{:header}" Font.Bold="" />
+        <StaticLine />
+    </Component>
+
+    <!-- component definitions can include other components as well,
+         arguments to those must be redefined -->
+    <Component Name="Header4">
+        <BoxSizer orient="VERTICAL" Expand="" />
+        <Header2 header="{:header}" />
+        <StaticLine />
+    </Component>
+
+    <!-- by default the component is used as the parent for any
+         child items, but this can be customized with the
+         ChildParent attribute. -->
+    <Component Name="HeaderGroup" Parent="Stack">
+        <Header4 header="{:header}" />
+        <Stack ChildParent="" />
+        <StaticLine />
+    </Component>
+
+    <!-- create a panel to allow a sizer to be used -->
+    <Panel>
+        <BoxSizer orient="VERTICAL" Expand="" Border="BOTTOM | LEFT | RIGHT, 5" />
+
+        <!-- once registered, the component can be used directly -->
+        <Header />
+        <!-- if the component has arguments, then they can be defined as attributes -->
+        <Header2 header="Section 2" />
+
+        <Header3 header="Section 3" />
+
+        <Header4 header="Section 4" />
+
+        <HeaderGroup header="Section 5">
+            <Button label="Click" />
+        </HeaderGroup>
+
+        <HeaderGroup header="Section 6">
+            <StaticText label="Nested Component:" />
+            <HeaderGroup header="Section 6.1" Border="LEFT, 10">
+                <Button label="Click 6.1" />
+                <Button label="Click 6.2" />
+            </HeaderGroup>
+            <Button label="Click 6" />
+        </HeaderGroup>
+
+        <HeaderGroup header="Section 7">
+            <Button label="Click 7" />
+        </HeaderGroup>
+    </Panel>
+</Frame>

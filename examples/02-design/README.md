@@ -1,10 +1,11 @@
 ## 2. Integrating with Python
 
+Once you have built a user interface in an Xml file, the next step is to integrate it with Python
+to add behaviors to make it interactive.
 
-### Error Viewer
+You can view `code.xml` with the wxml package, but clicking the button won't do anything at the moment.
 
-If you're running in design mode, you may make an edit that will result in errors
-when the UI is built. The module comes in a built-in error viewer that can be shown
-by passing in a debug flag argument.
+### GenericViewModel
 
-Run `<python> -m wxml -d --debug-flags ERROR hello.xml`.
+
+
