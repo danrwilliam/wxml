@@ -2,10 +2,13 @@ from setuptools import setup, find_packages
 
 setup(
     name='wxml',
-    version='0.8.2',
+    version='0.8.3',
     packages=find_packages(),
+    include_package_data=True,
     install_requires=[
         'wxpython',
-        'watchdog'
-    ]
+    ],
+    package_data={
+        'wxml': ['*.xml'],
+    }
 )
