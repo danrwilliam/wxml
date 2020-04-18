@@ -807,7 +807,9 @@ class UiBuilder(object):
             self.setup_parent(func, obj, params)
         elif call is not None or func.tag in dir(parent):
             set_to = self.eval_args({'value': func.attrib.get('value')})['value']
-            if isinstance(set_to, tuple) and isinstance(set_to[0], bind.BindValue):
+            if isinstance(set_to, bind.BindValue):
+                setattr(parent, func.tag, set_to.value)
+            elif isinstance(set_to, tuple) and isinstance(set_to[0], bind.BindValue):
                 binding, event, transformer, receiver = set_to
                 self.binding_hook(
                     binding,
