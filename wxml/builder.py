@@ -624,7 +624,7 @@ class UiBuilder(object):
             use_node.append(clone_element(child))
 
         obj = builder.wx_node(use_node, parent, params, actual_obj=class_obj)
-        for c in class_obj._ctor:
+        for c in use_node:
             builder.compile(c, obj, {})
 
         builder.post_build(obj)
@@ -982,7 +982,7 @@ class UiBuilder(object):
         self.counter[class_obj] += 1
         self.debug_names[this_obj] = var_name
 
-        return parent, params
+        return parent
 
     @Node.node('CustomWx')
     def wx_custom(self, node, parent, params):
@@ -1131,7 +1131,6 @@ class UiBuilder(object):
         for k in node.attrib:
             if k.startswith('FontInfo.'):
                 elem = k[idx:]
-                print(elem)
                 if elem in ('pointSize', 'pixelSize'):
                     font_info_config.attrib[elem] = node.attrib[k]
                 else:
@@ -1418,10 +1417,10 @@ class UiBuilder(object):
         # that its definition is applied first
         if parent_type in UiBuilder.components:
             for c in UiBuilder.components[parent_type]._ctor:
-                elem.append(ET.Element(c.tag, **c.attrib))
+                elem.append(clone_element(c))
 
         for c in node:
-            elem.append(ET.Element(c.tag, **c.attrib))
+            elem.append(c)
 
         custom_obj._ctor = elem
         custom_obj._overrides = overrides
@@ -1856,17 +1855,23 @@ class ViewModel(object):
                 print('%s construction time: %.2f seconds' % (self.filename, (end - start)))
 
 
-        if DEBUG_ERROR and DEBUG_ERROR_UI:
+        if DEBUG_ERROR:
             for ex, node, parent, trace in ui.construction_errors:
-                ErrorViewModel.instance().add_error(
-                    node,
-                    self.filename,
-                    parent,
-                    ex,
-                    trace
-                )
+                if DEBUG_ERROR_UI:
+                    ErrorViewModel.instance().add_error(
+                        node.tag,
+                        self.filename,
+                        parent,
+                        ex,
+                        trace
+                    )
+                else:
+                    print(node.tag, self.filename, parent.__class__.__name__, ex)
+                    print(trace)
+                    print('-' * 10)
 
-            if len(ui.construction_errors):
+
+            if len(ui.construction_errors) and DEBUG_ERROR_UI:
                 ErrorViewModel.instance().view.Show()
 
         return self.view
