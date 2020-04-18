@@ -44,6 +44,12 @@ class CustomNodeType(enum.Enum):
 class Passthrough(object):
     pass
 
+def clone_element(element : ET.Element) -> ET.Element:
+    new_element = ET.Element(element.tag, **element.attrib)
+    for child in element:
+        new_element.append(clone_element(child))
+    return new_element
+
 class Ui(object):
     Registry = {}
     _imported = set()
@@ -82,14 +88,12 @@ class Control(object):
     def __call__(self, parent, *args, auto_sizer=True, **kwargs):
         # see if there is XML associated with this class
         ctor = getattr(self._class_obj, '_ctor', None)
-        #if ctor is None:
-        #    return self._class_obj(parent, *args, **kwargs)
 
         builder = UiBuilder(self._class_obj.__name__)
         builder._view_model_is_root = True
         builder.init_build(None)
 
-        if ctor is  None:
+        if ctor is None:
             ctor = ET.Element('Fake')
 
         obj = builder.wx_node(
@@ -234,9 +238,6 @@ class UiBuilder(object):
 
             obj.SetAcceleratorTable(wx.AcceleratorTable(entries))
 
-        # for v in self.values_to_update:
-        #     v.update_target(None)
-
         UiBuilder.debug_names.update(self.debug_names)
 
     def build(self, view_model, parent=None, sizer_flags=None):
@@ -359,6 +360,9 @@ class UiBuilder(object):
             key = value.lstrip('{').rstrip('}')
             if key in self.loop_vars:
                 resolved = 'loop_var'
+                obj = self.loop_vars[key]
+                if DEBUG_EVAL:
+                    print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, obj, obj.__class__.__name__))
                 return self.loop_vars[key]
 
             if hasattr(self, 'overrides'):
@@ -367,6 +371,10 @@ class UiBuilder(object):
                     obj = self.overrides.get(t)
                     if k and obj is not None:
                         obj = nested_getattr('.'.join(k), obj)
+
+                    resolved = 'OneTimeOverride'
+                    if DEBUG_EVAL:
+                        print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, obj, obj.__class__.__name__))
 
                     if obj is not None:
                         return obj
@@ -398,14 +406,6 @@ class UiBuilder(object):
                 if DEBUG_EVAL:
                     print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, builder, builder.__class__.__name__))
                 return resource
-
-        # this will be evaluated as an event function
-        # if value and value[0] == '@':
-        #     retval = lambda evt: nested_getattr(evt, value[1:])
-        #     resolved = 'event attribute'
-        #     if DEBUG_EVAL:
-        #         print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, retval, retval.__class__.__name__))
-        #     return retval
 
         # look first for something in the view model
         if not_a_class and bare_class:
@@ -551,6 +551,8 @@ class UiBuilder(object):
         post_action = NodePost.action_for(node)
         if post_action is not None:
             try:
+                if DEBUG_COMPILE:
+                    print(' %s.%s (post)' % (os.path.splitext(os.path.basename(self.filename))[0], node.tag), '->', post_action.__name__)
                 post_action(self, node, parent_obj, params)
             except Exception as ex:
                 if DEBUG_ERROR:
@@ -616,10 +618,10 @@ class UiBuilder(object):
         use_node.attrib.update(node.attrib)
 
         for c in ctor:
-            use_node.append(c)
+            use_node.append(clone_element(c))
 
         for child in node:
-            use_node.append(child)
+            use_node.append(clone_element(child))
 
         obj = builder.wx_node(use_node, parent, params, actual_obj=class_obj)
         for c in class_obj._ctor:
@@ -645,7 +647,7 @@ class UiBuilder(object):
 
         use_node = ET.Element('CustomWx')
         use_node.attrib['_class'] = node.tag
-        use_node.attrib['_passthru'] = obj._type
+        use_node.attrib['_passthru'] = obj._type.name
         use_node.attrib.update(true_node.attrib)
 
         use_node.attrib.update({
@@ -655,7 +657,7 @@ class UiBuilder(object):
         })
 
         for c in true_node:
-            use_node.append(c)
+            use_node.append(clone_element(c))
 
         parent_nodes = use_node.findall('.//*[@ChildParent]')
         for p in parent_nodes:
@@ -666,29 +668,28 @@ class UiBuilder(object):
             parent_node = use_node
 
         for child in node:
-            parent_node.append(child)
+            parent_node.append(clone_element(child))
 
-        if not hasattr(self, 'overrides'):
-            overrides = {
-                name: self.str2py(node.attrib.get(name, getattr(self, 'overrides', {}).get(name, default or '')))
-                for name, default in overrides.items()
-            }
+        this_overrides = getattr(self, 'overrides', {})
 
-            self.overrides = overrides
-            within = False
-        else:
-            within = True
+        build_overrides = {}
 
-        obj = self.compile(use_node, parent, params)
+        for name, default in overrides.items():
+            val = self.str2py(node.attrib.get(name, overrides.get(name, default or '')))
+            # if this is a string, we should try and convert it
+            if isinstance(val, str):
+                build_overrides[name] = self.str2py(val)
+            else:
+                build_overrides[name] = val
 
-        for child in node:
-            parent_node.remove(child)
+        builder = UiBuilder(self.filename + '[%s]' % node.tag)
+        builder.init_build(self.view_model)
+        builder.overrides = build_overrides
+        obj = builder.compile(use_node, parent, params)
+        builder.post_build(obj)
 
         if isinstance(obj, (wx.Panel, wx.Frame)):
             self.wx_setsizer(use_node, obj, params)
-
-        if not within:
-            del self.overrides
 
         return None
 
@@ -704,7 +705,7 @@ class UiBuilder(object):
     @Node.filter(lambda n: hasattr(wx, n.tag) and issubclass(getattr(wx, n.tag), wx.DropTarget))
     def create_drop_target(self, node, parent, params):
         class_obj = wx_getattr(node.tag)
-        name = node.attrib.get('name')
+        name = node.attrib.get('Name')
         handler = class_obj(parent)
 
     def loop_over(self, node, parent, params):
@@ -844,11 +845,12 @@ class UiBuilder(object):
             else:
                 bind_type = 'ToSource'
             print('  Bound {0} to {1}.{2} direction={3}'.format(
-                '<%s(%s):%s>'  % (binding.name or '',  binding.__class__.__name__, hex(id(binding))),
-                parent.__class__.__name__,
-                attr_name,
-                bind_type
-            ))
+                '<%s(%s):%s>'  % (binding.name or '', binding.__class__.__name__, hex(id(binding))),
+                    parent.__class__.__name__,
+                    attr_name,
+                    bind_type
+                )
+            )
 
         if to_widget:
             binding.add_target(parent, attr_name, transform=transformer, arguments=arguments)
@@ -967,7 +969,9 @@ class UiBuilder(object):
     @Node.filter(lambda n: hasattr(wx, n.tag) and issubclass(getattr(wx, n.tag), wx.Sizer))
     def wx_create_sizer(self, node, parent, params):
         class_obj = nested_getattr(node.tag, root=wx)
-        this_obj = class_obj(**self.eval_args(node.attrib, exclude=self.SizerFlags(class_obj)))
+        kwargs = self.eval_args(node.attrib, exclude=self.SizerFlags(class_obj))
+
+        this_obj = class_obj(**kwargs)
 
         sizer_flags = self.eval_args(node.attrib, only_args=self.SizerFlags(class_obj))
 
@@ -982,10 +986,11 @@ class UiBuilder(object):
 
     @Node.node('CustomWx')
     def wx_custom(self, node, parent, params):
-        if node.attrib.pop('_passthru') == CustomNodeType.PassParent:
+        if node.attrib.pop('_passthru') == CustomNodeType.PassParent.name:
             return parent
         else:
-            return self.wx_node(node, parent, params, tag=node.attrib.pop('_class'))
+            new_obj = self.wx_node(node, parent, params, tag=node.attrib.pop('_class'))
+            return new_obj
 
     @Node.filter(lambda n: hasattr(wx, n.tag))
     def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None,
@@ -1073,13 +1078,12 @@ class UiBuilder(object):
             if all(hasattr(wx.SizerFlags, f) for f in sizer_args):
                 s = wx.SizerFlags()
                 for key, value in sizer_args.items():
-                    use_flags = True
                     f = getattr(s, key)
 
                     if key in self.ARGLESS_SIZER:
                         # empty tuple, backwards compat '' -> ()
                         if value == () or value:
-                            f()
+                            s = f()
                     else:
                         arg = [value] if not isinstance(value, (tuple, list)) else value
                         s = f(*arg)
@@ -1410,8 +1414,14 @@ class UiBuilder(object):
             for f, d in custom_arguments
         }
 
-        for idx, child in enumerate(node):
-            elem.insert(idx, child)
+        # if parent is a defined Xml component, then we need to make sure
+        # that its definition is applied first
+        if parent_type in UiBuilder.components:
+            for c in UiBuilder.components[parent_type]._ctor:
+                elem.append(ET.Element(c.tag, **c.attrib))
+
+        for c in node:
+            elem.append(ET.Element(c.tag, **c.attrib))
 
         custom_obj._ctor = elem
         custom_obj._overrides = overrides
