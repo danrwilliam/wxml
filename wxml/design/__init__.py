@@ -4,9 +4,6 @@ import os
 import time
 import traceback
 
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileModifiedEvent
-
 import wxml.builder
 from wxml.decorators import invoke_ui
 
