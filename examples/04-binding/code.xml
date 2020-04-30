@@ -6,11 +6,15 @@
 
         <StaticText label="One Time" />
         <!-- braces means only use the value at construction time -->
-        <TextCtrl style="TE_READONLY" value="{dynamic}" Expand="" />
+        <!-- when one time binding with a BindValue, you must 
+             use the value property if you want to use the value -->
+        <TextCtrl style="TE_READONLY" value="{dynamic.value}" Expand="" />
 
         <StaticText label="One Way to Target" />
         <!-- parantheses means update the target whenever the
              bind value changes -->
+        <!-- one or two way bindings, you do not need to say to use
+             the value property-->
         <TextCtrl style="TE_READONLY" value="(dynamic)" Expand="" />
 
         <StaticText label="Two Way" />

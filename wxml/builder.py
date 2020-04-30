@@ -1025,10 +1025,6 @@ class UiBuilder(object):
         for k, (b, e, to_widget, r) in bindings.items():
             args[k] = b.value if to_widget is None else to_widget.to_widget(b.value)
 
-        for k, v in args.items():
-            if isinstance(v, bind.BindValue):
-                args[k] = v.value
-
         if extra_kwargs is not None:
             args.update(extra_kwargs)
         if extra_args is not None:
