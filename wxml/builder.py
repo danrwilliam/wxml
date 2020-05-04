@@ -691,9 +691,7 @@ class UiBuilder(object):
         self.models.update(builder.models)
         self.debug_names.update(builder.debug_names)
         self.events.update(builder.events)
-
-        child_name = builder.debug_names[obj]
-        self.children[child_name] = obj
+        self.children.update(builder.children)
 
         if isinstance(obj, (wx.Panel, wx.Frame)):
             self.wx_setsizer(use_node, obj, params)
