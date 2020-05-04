@@ -688,6 +688,10 @@ class UiBuilder(object):
         obj = builder.compile(use_node, parent, params)
         builder.post_build(obj)
 
+        self.models.update(builder.models)
+        self.debug_names.update(builder.debug_names)
+        self.events.update(builder.events)
+        
         if isinstance(obj, (wx.Panel, wx.Frame)):
             self.wx_setsizer(use_node, obj, params)
 

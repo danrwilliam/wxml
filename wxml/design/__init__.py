@@ -8,11 +8,12 @@ import wxml.builder
 from wxml.decorators import invoke_ui
 
 class DesignThread(object):
-    def __init__(self, filename : str, create, error=None):
+    def __init__(self, filename : str, create, error=None, show_widgets=False):
         self.filename = filename
         self.closed = threading.Event()
         self.view = None
         self.builder = create
+        self.show_widgets = show_widgets
 
         self.error_vm = error or (lambda: None)
         self._error = True
@@ -37,6 +38,12 @@ class DesignThread(object):
         if self.thread.is_alive():
             self.thread.join()
 
+    def display_widgets(self, obj):
+        print('widgets:')
+        if self.show_widgets:
+            for name, ctrl in obj.view.widgets.items():
+                print(' - %s: %s' % (name, ctrl))            
+
     @invoke_ui
     def recreate(self):
         if self.view is not None and self.view.view is not None:
@@ -50,6 +57,7 @@ class DesignThread(object):
         try:
             self.view = self.builder(self.filename)
             self.view.on_close += self.cleanup
+            self.display_widgets(self.view)
         except Exception as ex:
             dlg = wx.MessageDialog(None, '{ex.__class__.__name__} occured while building\n\n{ex}\n\n{tb}'.format(
                     ex=ex,

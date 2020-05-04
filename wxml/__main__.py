@@ -12,6 +12,7 @@ parser.add_argument('--design', '-d', action='store_true', help='Watch the named
 parser.add_argument('--verbose', '-v', action='store_true')
 parser.add_argument('--debug-flags', '-f', type=lambda s: s.split(','), default=[])
 parser.add_argument('--check', '-c', action='store_true', help='Process the xml file but do not show the UI')
+parser.add_argument('--widgets', '-w', action='store_true', help='Print widgets and their names')
 opts = parser.parse_args()
 
 app = wx.App()
@@ -33,7 +34,8 @@ if opts.design:
     watch = DesignThread(
         opts.filename,
         create=create,
-        error=wxml.ErrorViewModel.instance
+        error=wxml.ErrorViewModel.instance,
+        show_widgets=opts.widgets
     )
     if watch.ok:
         watch.thread.start()
@@ -45,6 +47,10 @@ else:
         vm.view.Show()
         if opts.inspect:
             vm.inspect()
+    if opts.widgets:
+        print('widgets:')
+        for name, ctrl in vm.view.widgets.items():
+            print(' - %s: %s' % (name, ctrl))                    
 
 if not opts.check:
     app.MainLoop()

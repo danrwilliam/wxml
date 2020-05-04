@@ -1,0 +1,19 @@
+<Frame>
+    <Component Name="PadPanel">
+        <BoxSizer orient="VERTICAL" Border="LEFT, 10"
+                  Proportion="1" Expand="True" />
+    </Component>
+
+    <PadPanel Name="$top">
+        <StaticText label="Top Level" />    
+        <PadPanel Name="$nested">
+            <StaticText label="Nested" />
+            <PadPanel Name="$nested2">
+                <StaticText label="Extra Neseted" />
+            </PadPanel>
+        </PadPanel>
+        <PadPanel Name="$second">
+            <StaticText label="Number 2" />
+        </PadPanel>
+    </PadPanel>
+</Frame>
