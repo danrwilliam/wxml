@@ -4,16 +4,17 @@
                   Proportion="1" Expand="True" />
     </Component>
 
-    <PadPanel Name="$top">
-        <StaticText label="Top Level" />    
-        <PadPanel Name="$nested">
-            <StaticText label="Nested" />
-            <PadPanel Name="$nested2">
-                <StaticText label="Extra Neseted" />
-            </PadPanel>
+    <Notebook>
+        <PadPanel Name="First">
+            <StaticText label="First" />
         </PadPanel>
-        <PadPanel Name="$second">
-            <StaticText label="Number 2" />
-        </PadPanel>
-    </PadPanel>
+        <PadPanel Name="Second">
+            <StaticText label="Second" />
+        </PadPanel>        
+
+        <Config>
+            <AddPage page="{First}" text="First" />
+            <AddPage page="{Second}" text="Second" />
+        </Config>
+    </Notebook>
 </Frame>
