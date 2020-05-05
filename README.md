@@ -95,7 +95,7 @@ using this node.
 
 The empty string will be interpreted as `True` (like with sizer flag arguments).
 
-```
+```xml
 <Button label="Click">
     <Font>
         <Bold />
