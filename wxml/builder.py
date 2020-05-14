@@ -186,9 +186,10 @@ class UiBuilder(object):
     # actions that run when the builder is created
     _queued = []
 
-    def __init__(self, filename):
+    def __init__(self, filename, loader=False):
         self.filename = filename
         self._view_model_is_root = False
+        self._loader = loader
 
     @staticmethod
     def run_at_start(func, *args, **kwargs):
@@ -210,10 +211,11 @@ class UiBuilder(object):
         self.menu_ids = {}
 
         # try and run queued actions
-        if wx.App.Get() is not None and UiBuilder._queued is not None:
-            for f, args, kwargs in UiBuilder._queued:
-                f(*args, **kwargs)
-            UiBuilder._queued = None
+        if not self._loader:
+            if wx.App.Get() is not None and UiBuilder._queued is not None:
+                for f, args, kwargs in UiBuilder._queued:
+                    f(*args, **kwargs)
+                UiBuilder._queued = None
 
     def post_build(self, obj):
         obj.widgets = {}
@@ -1744,7 +1746,7 @@ def load_components(filename : str):
         loading library xml files that are not used for an actual UI.
     """
 
-    builder = UiBuilder(filename)
+    builder = UiBuilder(filename, loader=True)
     builder.init_build(None)
 
     import inspect
