@@ -52,11 +52,26 @@ class IconGroup(object):
         key = key.replace(' ', '_')
 
         if not hasattr(self, key):
-            icon = ico = wx.Icon(wx.Bitmap(wx.Image(path)))
+            icon = wx.Icon(wx.Bitmap(wx.Image(path)))
             setattr(self, key, icon)
 
     add = Add
     add_many = AddMany
+
+class IconBundleGroup(object):
+    def AddMany(self, pattern):
+        for g in glob.glob(convert_path(pattern)):
+            self.Add(g)
+
+    def Add(self, path, name=None):
+        path = convert_path(path)
+        key = name or os.path.splitext(os.path.basename(path))[0]
+        key = key.replace(' ', '_')
+
+        if not hasattr(self, key):
+            icon = wx.IconBundle(path)
+            setattr(self, key, icon)
+
 
 class NamedTupleSerializer(wxml.bind.BindValueSerializer):
     def __init__(self, klass_obj):

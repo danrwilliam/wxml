@@ -19,7 +19,7 @@ from pathlib import Path
 from wxml.event import Event
 from wxml.decorators import invoke_ui, block_ui
 import wxml.bind as bind
-from wxml.utils import ImgGroup, Resources, IconGroup
+from wxml.utils import ImgGroup, Resources, IconGroup, IconBundleGroup
 from wxml.attr import nested_getattr, nested_hasattr
 
 DEBUG_EVAL = False
@@ -586,6 +586,16 @@ class UiBuilder(object):
             if hasattr(imgs, c.tag):
                 args = self.eval_args(c.attrib)
                 getattr(imgs, c.tag)(**args)
+
+    @Node.node('IconBundles')
+    def icon_bundles(self, node, parent, params):
+        if not hasattr(Resources, 'IconBundles'):
+            Resources.IconBundles = IconBundleGroup()
+
+        for c in node:
+            if hasattr(Resources.IconBundles, c.tag):
+                args = self.eval_args(c.attrib)
+                getattr(Resources.IconBundles, c.tag)(**args)
 
     @Node.node('Namespace')
     def namespace(self, node, parent, params):
