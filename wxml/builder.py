@@ -734,8 +734,9 @@ class UiBuilder(object):
         for child in node:
             fake.append(child)
 
-        for var in loop_var:
+        for idx, var in enumerate(loop_var):
             self.loop_vars['over'] = var
+            self.loop_vars['index'] = idx
             for child in node:
                 self.setup_parent(fake, parent, params)
 
