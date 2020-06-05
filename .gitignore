@@ -8,3 +8,4 @@ TODO
 **/__pycache__
 build
 dist
+.idea

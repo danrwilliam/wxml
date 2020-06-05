@@ -967,6 +967,7 @@ class UiBuilder(object):
     ARGLESS_SIZER = set(
         ['Expand', 'Shaped', 'Top', 'Right', 'Left', 'Center', 'Bottom', 'Centre', 'ReserveSpaceEvenIfHidden']
     )
+    SIZER_TRUE = (True, ())
 
     def SizerFlags(self, parent):
         if parent.__class__ in UiBuilder.SIZER_FLAGS_DICT:
@@ -1009,6 +1010,13 @@ class UiBuilder(object):
         else:
             new_obj = self.wx_node(node, parent, params, tag=node.attrib.pop('_class'))
             return new_obj
+
+    def adjust_sizer_flags(self, default, args, key1, key2):
+        if default.get(key1, False) in self.SIZER_TRUE and args.get(key2, False) in self.SIZER_TRUE:
+            args.pop(key1, None)
+        # if expand is on this node, ignore center
+        elif default.get(key2, False) in self.SIZER_TRUE and args.get(key1, False) in self.SIZER_TRUE:
+            args.pop(key2, None)
 
     @Node.filter(lambda n: hasattr(wx, n.tag))
     def wx_node(self, node, parent=None, params=None, root=wx, tag=None, actual_obj=None,
@@ -1079,15 +1087,16 @@ class UiBuilder(object):
         this_obj.Name = var_name
 
         if not skip_sizer and parent is not None and getattr(parent, 'Sizer', None) is not None:
-            sizer_args = {k: v for k, v in getattr(parent.Sizer, 'default_flags', {}).items()}
+            default_flags = getattr(parent.Sizer, 'default_flags', {})
+            sizer_args = {k: v for k, v in default_flags.items()}
             widget_args = self.eval_args(style_args, only_args=self.SizerFlags(parent.Sizer))
             overrides = self.eval_args(node.attrib, only_args=self.SizerFlags(parent.Sizer))
             sizer_args.update(widget_args)
             sizer_args.update(overrides)
 
             # shaped wins over proportion
-            if 'Shaped' in sizer_args:
-                sizer_args.pop('Proportion', None)
+            self.adjust_sizer_flags(default_flags, sizer_args, 'Shaped', 'Proportion')
+            self.adjust_sizer_flags(default_flags, sizer_args, 'Expand', 'Center')
 
             if all(hasattr(wx.SizerFlags, f) for f in sizer_args):
                 s = wx.SizerFlags()
@@ -1832,7 +1841,7 @@ class ViewModel(object):
         import wx.lib.inspection
         wx.lib.inspection.InspectionTool().Show()
 
-    def build(self, parent: wx.Object=None, sizer_flags=None):
+    def build(self, parent: Optional[wx.Object]=None, sizer_flags=None):
         """
             Builds the UI from the XML file for this ViewModel.
             When the UI is built, events from the view are wired up
