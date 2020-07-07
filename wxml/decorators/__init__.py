@@ -1,5 +1,6 @@
 import queue
 import threading
+import functools
 from typing import Optional, Callable, Tuple
 import sys
 import wx
@@ -26,6 +27,7 @@ def invoke_ui(func):
         Calling from a non-UI thread will return immediately,
         use block_ui if you want to wait or get the return value.
     """
+    @functools.wraps(func)
     def wraps(*args, **kwargs):
         if not wx.IsMainThread():
             wx.CallAfter(func, *args, **kwargs)
@@ -41,6 +43,7 @@ def block_ui(func):
         Exceptions that occur are re-raised on the calling thread.
     """
 
+    @functools.wraps(func)
     def wraps(*args, **kwargs):
         if wx.IsMainThread():
             return func(*args, **kwargs)
@@ -82,6 +85,7 @@ def background(func):
         except Exception as ex:
             background.handler(ex, sys.exc_info())
 
+    @functools.wraps(func)
     def wraps(*args, **kwargs):
         if wx.IsMainThread():
             t = threading.Thread(target=wrapped, args=args, kwargs=kwargs)
