@@ -294,9 +294,13 @@ class UiBuilder(object):
             if DEBUG_EVENT:
                 print()
 
-            widget.Bind(*args)
-
             setattr(obj, event_handler.name, event_handler)
+
+            try:
+                widget.Bind(*args)
+            except AssertionError as ex:
+                self.construction_errors.append([Exception('event: %s -> %s' % (event, event_type)), None, widget, traceback.format_exc()])
+
 
     def str2py(self, value, bare_class=False):
         """
@@ -641,6 +645,8 @@ class UiBuilder(object):
 
         builder.post_build(obj)
 
+        self.values_to_update.extend(builder.values_to_update)
+
         var_name = node.attrib.get('Name', '%s_%d' % (tag or node.tag, self.counter[class_obj]))
         self.counter[class_obj] += 1
         self.debug_names[obj] = var_name
@@ -699,6 +705,8 @@ class UiBuilder(object):
         builder.overrides = build_overrides
         obj = builder.compile(use_node, parent, params)
         builder.post_build(obj)
+
+        self.values_to_update.extend(builder.values_to_update)
 
         self.models.update(builder.models)
         self.debug_names.update(builder.debug_names)
@@ -1868,21 +1876,20 @@ class ViewModel(object):
 
             end = time.perf_counter()
 
-            for v in ui.values_to_update:
-                v.touch()
-
             if self.view is not None:
                 self.ready()
 
+            for v in ui.values_to_update:
+                v.touch()
+
             if DEBUG_TIME:
                 print('%s construction time: %.2f seconds' % (self.filename, (end - start)))
-
 
         if DEBUG_ERROR:
             for ex, node, parent, trace in ui.construction_errors:
                 if DEBUG_ERROR_UI:
                     ErrorViewModel.instance().add_error(
-                        node.tag,
+                        node.tag if node else '',
                         self.filename,
                         parent,
                         ex,
@@ -1945,6 +1952,10 @@ class ErrorViewModel(ViewModel):
 
     def ready(self):
         self.err_list = self.view.widgets['error_list']
+        self.on_close += self._remove_from_class
+
+    def _remove_from_class(self):
+        del ErrorViewModel._instance
 
     @invoke_ui
     def add_error(self, node, filename, parent, exception, tb):

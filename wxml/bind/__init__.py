@@ -1,7 +1,7 @@
 import sys
 import os
 import json
-from typing import List, Dict, Optional, Callable, Type, Any
+from typing import List, Dict, Optional, Callable, Type, Any, Union
 import enum
 
 import wx
@@ -15,13 +15,12 @@ from wxml.attr import nested_getattr, nested_hasattr
 DEBUG_UPDATE = False
 DEBUG_STORE = False
 
-class BindFailure(enum.Enum):
-    Ignore = "Ignore"
-    IgnoreFirst = "IgnoreFirst"
-    Raise = "Raise"
 
 class BindTarget(object):
-    def __init__(self, obj, attr, transform : Optional['Transformer'] = None,
+    def __init__(self,
+                 obj : Any,
+                 attr : Union[Callable, str],
+                 transform : Optional['Transformer'] = None,
                  arguments : Optional[Dict[str, Any]] = None):
         self.obj = obj
         self.attr = attr
@@ -38,7 +37,7 @@ class BindTarget(object):
             else:
                 self.bind_key = None
 
-    def __call__(self, value):
+    def __call__(self, value : Any) -> None:
         if self.transformer is not None:
             value = self.transformer.to_widget(value)
 
@@ -59,14 +58,18 @@ class BindTarget(object):
 
 
 class BindSource(object):
-    def __init__(self, obj, attr, converter=None, arguments=None):
+    def __init__(self,
+                 obj : Any,
+                 attr : Union[Callable, str],
+                 converter : Optional['Transformer'] = None,
+                 arguments : Optional[Dict[str, Any]] = None):
         self.obj = obj
         self.attr = attr
         self.is_call = callable(self.attr)
         self.converter = converter
         self.arguments = arguments or {}
 
-    def receive(self):
+    def receive(self) -> Any:
         if self.is_call:
             value = self.attr(**self.arguments)
         else:
@@ -144,7 +147,14 @@ class BindValueSerializer(object):
 
 
 class BindValue(object):
-    def __init__(self, value, name=None, parent=None, serialize=False, trace=False, serializer : Optional[BindValueSerializer]=None):
+    def __init__(self,
+                 value : Any,
+                 name : Optional[str] = None,
+                 parent = None,
+                 serialize = False,
+                 trace = False,
+                 serializer : Optional[BindValueSerializer] = None):
+
         if serialize is True and name is None:
             raise ValueError('BindValue: name cannot be None when serialize is True')
 
@@ -178,7 +188,7 @@ class BindValue(object):
                 p.bound.add_target(p, p.from_widget)
 
     def load(self, value):
-        if self._serializer is not None:
+        if self._serializer is not None and value is not None:
             return self._serializer.deserialize(value)
         else:
             return value
@@ -226,16 +236,20 @@ class BindValue(object):
 
         self._set(value, source=obj)
 
+        # call skip to make any further event handlers are called
         evt.Skip()
 
     def __str__(self):
         return str(self._value)
 
-    def touch(self):
+    def touch(self, all=False):
         """
             Fires an update of all targets without changing the value
         """
-        self.update_target()
+        if all:
+            self.touch_all()
+        else:
+            self.update_target()
 
     def touch_all(self):
         """
@@ -289,8 +303,16 @@ class BindValue(object):
 
 
 class ArrayBindValue(BindValue):
-    def __init__(self, array: List, name=None, parent=None, serialize=False, trace=False, preserve=True, serializer=None,
-                 default_index : int = 0, default=None):
+    def __init__(self,
+                 array: List,
+                 name : Optional[str] = None,
+                 parent=None,
+                 serialize=False,
+                 trace=False,
+                 preserve=True,
+                 serializer : Optional[BindValueSerializer] = None,
+                 default_index : int = 0,
+                 default : Optional[Any] = None):
         super().__init__(array, name=name, parent=parent, serialize=serialize, trace=trace, serializer=serializer)
         self.preserve = preserve
 
@@ -341,13 +363,19 @@ class ArrayBindValue(BindValue):
         except (IndexError, KeyError):
             return None
 
+
 class DynamicValue(BindValue):
     """
         Creating a DynamicValue without a update method will always cause
         targets to be updated. This can be used as a way to group together
         bind values to be listened to.
     """
-    def __init__(self, *listeners : List[BindValue], update : Callable=None, default='', name=None, trace=False):
+    def __init__(self,
+                 *listeners : List[BindValue],
+                 update : Callable[[], None] = None,
+                 default : Optional[Any] = '',
+                 name : Optional[str] = None,
+                 trace = False):
         super().__init__(default, serialize=False, name=name, trace=trace)
         self.action = update or self._noop
         for l in listeners:
@@ -373,6 +401,7 @@ class DynamicValue(BindValue):
         self._value = value
         self.update_target()
 
+
 class DynamicArrayBindValue(DynamicValue, ArrayBindValue):
     """
         listeners: list of BindValue's that will cause this to update
@@ -384,10 +413,15 @@ class DynamicArrayBindValue(DynamicValue, ArrayBindValue):
                    constrained to the new contents
     """
 
-    def __init__(self, *listeners : List[BindValue], update:Callable = None,
-                 name : str=None, trace=False, preserve=True):
+    def __init__(self,
+                 *listeners : List[BindValue],
+                 update : Optional[Callable[[], None]] = None,
+                 name : Optional[str] = None,
+                 trace = False,
+                 preserve = True):
         super().__init__(*listeners, name=name, update=update, trace=trace)
         self.preserve = preserve
+
 
 class Transformer(object):
     def __init__(self, bind_value: BindValue):
@@ -399,7 +433,7 @@ class Transformer(object):
 
 
 class ToWidgetGenericTransformer(Transformer):
-    def __init__(self, bind_value, converter):
+    def __init__(self, bind_value, converter : Callable[[Any], Any]):
         super().__init__(bind_value)
         self.converter = converter
 
@@ -408,7 +442,7 @@ class ToWidgetGenericTransformer(Transformer):
 
 
 class FromWidgetGenericTransformer(Transformer):
-    def __init__(self, bind_value, converter):
+    def __init__(self, bind_value, converter : Callable[[Any], Any]):
         super().__init__(bind_value)
         self.converter = converter
 
@@ -416,7 +450,7 @@ class FromWidgetGenericTransformer(Transformer):
         return self.converter(value)
 
 class ToWidgetProperty(ToWidgetGenericTransformer):
-    def __init__(self, bind_value, prop_name, conv=str):
+    def __init__(self, bind_value, prop_name : str, conv : Callable[[Any], Any] = str):
         self._property = prop_name
         self._conv = conv
         super().__init__(bind_value, self.get_property)
