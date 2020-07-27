@@ -693,15 +693,16 @@ class UiBuilder(object):
         build_overrides = {}
 
         for name, default in overrides.items():
-            val = self.str2py(node.attrib.get(name, overrides.get(name, default or '')))
-            # if this is a string, we should try and convert it
-            if isinstance(val, str):
-                build_overrides[name] = self.str2py(val)
+            # pass down current overrides to the child
+            if name in this_overrides:
+                build_overrides[name] = this_overrides[name]
             else:
-                build_overrides[name] = val
-
-        # pass down current overrides to the child
-        build_overrides.update(this_overrides)
+                val = self.str2py(node.attrib.get(name, overrides.get(name, default or '')))
+                # if this is a string, we should try and convert it
+                if isinstance(val, str):
+                    build_overrides[name] = self.str2py(val)
+                else:
+                    build_overrides[name] = val
 
         builder = UiBuilder(self.filename + '[%s]' % node.tag)
         builder.init_build(self.view_model)
