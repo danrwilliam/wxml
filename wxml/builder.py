@@ -700,6 +700,9 @@ class UiBuilder(object):
             else:
                 build_overrides[name] = val
 
+        # pass down current overrides to the child
+        build_overrides.update(this_overrides)
+
         builder = UiBuilder(self.filename + '[%s]' % node.tag)
         builder.init_build(self.view_model)
         builder.overrides = build_overrides
