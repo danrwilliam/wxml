@@ -310,6 +310,7 @@ class ArrayBindValue(BindValue):
                  serialize=False,
                  trace=False,
                  preserve=True,
+                 index_update: Optional[Callable[[], None]] = None,
                  serializer : Optional[BindValueSerializer] = None,
                  default_index : int = 0,
                  default : Optional[Any] = None):
@@ -336,7 +337,8 @@ class ArrayBindValue(BindValue):
             name='%s-item' % name if name is not None else None,
             trace=trace
         )
-        self.after_changed += self._set_index
+
+        self.after_changed += (index_update or self._set_index)
 
     def _set_index(self, e):
         if not self.preserve:
@@ -418,9 +420,13 @@ class DynamicArrayBindValue(DynamicValue, ArrayBindValue):
                  update : Optional[Callable[[], None]] = None,
                  name : Optional[str] = None,
                  trace = False,
+                 index_update: Optional[Callable[[], None]] = None,
                  preserve = True):
         super().__init__(*listeners, name=name, update=update, trace=trace)
         self.preserve = preserve
+        if index_update is not None:
+            self.after_changed -= self._set_index
+            self.after_changed += index_update
 
 
 class Transformer(object):
