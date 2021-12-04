@@ -444,8 +444,9 @@ class UiBuilder(object):
                         print('   Raw="{0}" ResolveType={1} Value={2} Class={3}'.format(value, resolved, obj, obj.__class__.__name__))
                     return obj
 
-        if not_a_class and wx_hasattr(value):
-            retval = wx_getattr(value)
+        wx_value = wx_getattr(value)
+        if not_a_class and wx_value is not None:
+            retval = wx_value
             resolved = 'wx attr'
         else:
             try:
