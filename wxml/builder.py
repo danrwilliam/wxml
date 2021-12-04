@@ -1125,12 +1125,18 @@ class UiBuilder(object):
                 try:
                     parent.Sizer.Add(this_obj, s)
                 except wx._core.wxAssertionError as ex:
-                    self.construction_errors.append([ex, node.tag, None, traceback.format_exc()])
+                    flags = self.explain_sizer_args(sizer_args)
+                    flags.append('')
+                    flags.append(traceback.format_exc())
+                    self.construction_errors.append([ex, node.tag, None, '\n'.join(flags)])
             else:
                 try:
                     parent.Sizer.Add(this_obj, **{k.lower(): v for k, v in sizer_args.items()})
                 except wx._core.wxAssertionError as ex:
-                    self.construction_errors.append([ex, node.tag, None, traceback.format_exc()])
+                    flags = self.explain_sizer_args(sizer_args)
+                    flags.append('')
+                    flags.append(traceback.format_exc())
+                    self.construction_errors.append([ex, node.tag, None, '\n'.join(flags)])
         # Config. attributes
         auto_config = ET.Element('Config')
         idx = len('Config.')
@@ -1182,6 +1188,29 @@ class UiBuilder(object):
             self.wx_font_setup(font_info_config, this_obj, params)
 
         return this_obj
+
+    def explain_sizer_args(self, args):
+        flags = ['Sizer Flags:']
+        for k, v in args.items():
+            if k == 'Align':
+                attrs = {f: getattr(wx, f) for f in dir(wx) if f.startswith('ALIGN_')}
+                n = []
+                for name, val in attrs.items():
+                    if val & v:
+                        n.append(name)
+                flags.append('- %s: %s raw=%d' % (k, '|'.join(n), val))
+            elif k == 'Border':
+                attrs = {'ALL': wx.ALL, 'LEFT': wx.LEFT, 'RIGHT': wx.RIGHT, 'BOTTOM': wx.BOTTOM, 'TOP': wx.TOP}
+                n = []
+                for name, val in attrs.items():
+                    if val & v[0]:
+                        n.append(name)
+                flags.append('- %s: direction=%s border=%d raw=%d' % (k, '|'.join(n), v[1], v[0]))
+            elif v == ():
+                flags.append('- %s: True' % k)
+            else:
+                flags.append('- %s: %s' % (k, v))
+        return flags
 
     def add_to_sizer(self, node, parent, this_obj):
         pass
@@ -1936,7 +1965,7 @@ class GenericViewModel(ViewModel):
 class ErrorViewModel(ViewModel):
     @classmethod
     def instance(cls):
-        if cls._instance is None:
+        if not hasattr(cls, '_instance') or cls._instance is None:
             cls._instance = ErrorViewModel()
         return cls._instance
 

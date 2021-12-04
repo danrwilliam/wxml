@@ -10,23 +10,25 @@
         </wx.dataview.DataViewListCtrl>
 
         <Panel Name="detail">
-            <BoxSizer orient="VERTICAL" Proportion="1" Expand="" />
-            <Button label="Delete All">
-                <EventBindings>
-                    <EVT_BUTTON handler="delete_all" />
-                </EventBindings>
-            </Button>
-            <BoxSizer Expand="" Border="ALL, 5" orient="VERTICAL">
-                <StaticText label="Exception Detail" />
-                <TextCtrl style="TE_MULTILINE | TE_AUTO_URL"
-                          value="(selection[get_message_detail])"
-                          Proportion="1">
-                    <Config>
-                        <SetFont font="Font(10, MODERN, NORMAL, NORMAL, False, 'Consolas')" />
-                    </Config>
-                </TextCtrl>
-                <StaticText label="(selection[row_select_str])" />
-            </BoxSizer>
+            <BoxSizer orient="VERTICAL" Proportion="0" Expand="" Border="ALL, 3" />
+            <Panel>
+                <BoxSizer Center="" />
+                <StaticText label="Exception Detail"/>
+                <StaticText Expand="" Proportion="1" />
+                <Button label="Delete All">
+                    <EventBindings>
+                        <EVT_BUTTON handler="delete_all" />
+                    </EventBindings>
+                </Button>
+            </Panel>
+            <TextCtrl style="TE_MULTILINE | TE_AUTO_URL"
+                    value="(selection[get_message_detail])"
+                    Proportion="1">
+                <Config>
+                    <SetFont font="Font(10, MODERN, NORMAL, NORMAL, False, 'Consolas')" />
+                </Config>
+            </TextCtrl>
+            <StaticText label="(selection[row_select_str])" />
         </Panel>
 
         <Config>
