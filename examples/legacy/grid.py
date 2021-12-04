@@ -31,6 +31,12 @@ class TestBed(wxml.ViewModel):
         self.text.value = ''
         self.one_way.value = ''
 
+        evt.Skip()
+
+    def another(self, evt):
+        print('another callback')
+        evt.Skip()
+
     @wxml.background
     def start_task(self, evt):
         wxml.background.handler.clear()
@@ -78,4 +84,5 @@ class TestBed(wxml.ViewModel):
 
 
 if __name__ == "__main__":
+    wxml.builder.DEBUG_ERROR=1
     wxml.run(TestBed)

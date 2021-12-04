@@ -6,7 +6,7 @@
 
         <StaticText label="One Time" />
         <!-- braces means only use the value at construction time -->
-        <TextCtrl style="TE_READONLY" value="{dynamic}" Expand="" />
+        <TextCtrl style="TE_READONLY" value="{dynamic.value}" Expand="" />
 
         <StaticText label="One Way to Target" />
         <!-- parantheses means update the target whenever the

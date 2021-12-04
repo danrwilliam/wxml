@@ -10,6 +10,7 @@
         <Button label="{message}">
             <EventBindings>
                 <EVT_BUTTON handler="pushed" />
+                <EVT_BUTTON handler="another" />
             </EventBindings>
         </Button>
         <TextCtrl value="(text:EVT_TEXT[str.lower])"  />

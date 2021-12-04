@@ -1122,10 +1122,15 @@ class UiBuilder(object):
                     else:
                         arg = [value] if not isinstance(value, (tuple, list)) else value
                         s = f(*arg)
-                parent.Sizer.Add(this_obj, s)
+                try:
+                    parent.Sizer.Add(this_obj, s)
+                except wx._core.wxAssertionError as ex:
+                    self.construction_errors.append([ex, node.tag, None, traceback.format_exc()])
             else:
-                parent.Sizer.Add(this_obj, **{k.lower(): v for k, v in sizer_args.items()})
-
+                try:
+                    parent.Sizer.Add(this_obj, **{k.lower(): v for k, v in sizer_args.items()})
+                except wx._core.wxAssertionError as ex:
+                    self.construction_errors.append([ex, node.tag, None, traceback.format_exc()])
         # Config. attributes
         auto_config = ET.Element('Config')
         idx = len('Config.')
@@ -1880,11 +1885,12 @@ class ViewModel(object):
 
             end = time.perf_counter()
 
-            if self.view is not None:
-                self.ready()
 
             for v in ui.values_to_update:
                 v.touch()
+
+            if self.view is not None:
+                self.ready()
 
             if DEBUG_TIME:
                 print('%s construction time: %.2f seconds' % (self.filename, (end - start)))
@@ -1893,7 +1899,7 @@ class ViewModel(object):
             for ex, node, parent, trace in ui.construction_errors:
                 if DEBUG_ERROR_UI:
                     ErrorViewModel.instance().add_error(
-                        node.tag if node else '',
+                        getattr(node, 'tag', str(node)) if node else '',
                         self.filename,
                         parent,
                         ex,
