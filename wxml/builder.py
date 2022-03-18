@@ -1936,7 +1936,7 @@ class ViewModel(object):
                         trace
                     )
                 else:
-                    print(node.tag, self.filename, parent.__class__.__name__, ex)
+                    print(getattr(node, 'tag', str(node)) if node else '', self.filename, parent.__class__.__name__, ex)
                     print(trace)
                     print('-' * 10)
 
