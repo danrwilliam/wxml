@@ -1201,12 +1201,16 @@ class UiBuilder(object):
                         n.append(name)
                 flags.append('- %s: %s raw=%d' % (k, '|'.join(n), val))
             elif k == 'Border':
-                attrs = {'ALL': wx.ALL, 'LEFT': wx.LEFT, 'RIGHT': wx.RIGHT, 'BOTTOM': wx.BOTTOM, 'TOP': wx.TOP}
-                n = []
-                for name, val in attrs.items():
-                    if val & v[0]:
-                        n.append(name)
-                flags.append('- %s: direction=%s border=%d raw=%d' % (k, '|'.join(n), v[1], v[0]))
+                # border is sometimes a tuple, and sometimes not
+                if isinstance(v, tuple):
+                    attrs = {'ALL': wx.ALL, 'LEFT': wx.LEFT, 'RIGHT': wx.RIGHT, 'BOTTOM': wx.BOTTOM, 'TOP': wx.TOP}
+                    n = []
+                    for name, val in attrs.items():
+                        if val & v[0]:
+                            n.append(name)
+                    flags.append('- %s: direction=%s border=%d raw=%d' % (k, '|'.join(n), v[1], v[0]))
+                else:
+                    flags.append('- %s: %d' % (k, v))
             elif v == ():
                 flags.append('- %s: True' % k)
             else:
