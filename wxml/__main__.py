@@ -1,12 +1,12 @@
 import argparse
-import os
 import sys
+from pathlib import Path
 
 import wx
 import wxml
 
 parser = argparse.ArgumentParser()
-parser.add_argument('filename', type=os.path.abspath, help='Xml file to build and run UI for')
+parser.add_argument('filename', type=Path, help='Xml file to build and run UI for')
 parser.add_argument('--inspect', '-i', action='store_true', help='Opens the wxpython inspector after construction')
 parser.add_argument('--design', '-d', action='store_true', help='Watch the named file for changes, and reload if it changes')
 parser.add_argument('--verbose', '-v', action='store_true')
@@ -50,7 +50,7 @@ else:
     if opts.widgets:
         print('widgets:')
         for name, ctrl in vm.view.widgets.items():
-            print(' - %s: %s' % (name, ctrl))                    
+            print(' - %s: %s' % (name, ctrl))
 
 if not opts.check:
     app.MainLoop()

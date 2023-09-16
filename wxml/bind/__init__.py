@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import os
 import json
@@ -85,21 +86,23 @@ class DataStore:
         Handler for serializing/deserializing persisted data.
     """
 
-    Directory = ''
+    Directory : Path = Path('').resolve()
     store = None
     _map = {}
     counter = 0
 
     @staticmethod
-    def _store_file():
-        filename = os.path.join(DataStore.Directory, '%s.store.json' % os.path.splitext(os.path.basename(sys.modules['__main__'].__file__))[0])
+    def _store_file() -> Path:
+        name = Path(sys.modules['__main__'].__file__).stem
+        filename = Path(DataStore.Directory) / f'{name}.store.json'
         return filename
 
     @staticmethod
     def _load():
-        if os.path.exists(DataStore._store_file()):
+        store_file = DataStore._store_file()
+        if store_file.exists():
             try:
-                with open(DataStore._store_file(), 'r') as fp:
+                with store_file.open('r') as fp:
                     data = json.loads(fp.read())
                     DataStore.store = data
                     if DEBUG_STORE:
@@ -112,7 +115,7 @@ class DataStore:
     @staticmethod
     def save():
         if len(DataStore._map) > 0:
-            with open(DataStore._store_file(), 'w') as fp:
+            with DataStore._store_file().open('w') as fp:
                 state = {
                     k: b.save()
                     for k, b in DataStore._map.items()
@@ -199,7 +202,7 @@ class BindValue(object):
         else:
             return self.value
 
-    def add_target(self, obj, attr, transform=None, arguments=None):
+    def add_target(self, obj, attr, transform: Optional['Transformer'] = None, arguments=None):
         self.targets.append(BindTarget(obj, attr, transform, arguments))
 
     def add_target2(self, obj, attr, transform=None, **arguments):

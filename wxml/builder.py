@@ -9,7 +9,7 @@ import ast
 import functools
 import threading
 import re
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, Union
 import traceback
 import logging
 import enum
@@ -54,12 +54,12 @@ class Ui(object):
     Registry = {}
     _imported = set()
 
-    def __init__(self, view_name):
+    def __init__(self, view_name: Union[str, os.PathLike]):
         self.filename = view_name
 
     def __call__(self, class_obj):
-        defined_in = sys.modules[class_obj.__module__].__file__
-        xml_path = os.path.abspath(os.path.join(os.path.dirname(defined_in), self.filename))
+        defined_in = Path(sys.modules[class_obj.__module__].__file__)
+        xml_path = (defined_in.parent / self.filename).resolve()
         use_name = self.filename
         class_obj.filename = xml_path
         # make it available as the filename, and the class name
@@ -526,7 +526,7 @@ class UiBuilder(object):
         action = Node.action_for(node)
 
         if DEBUG_COMPILE:
-            print(' %s.%s' % (os.path.splitext(os.path.basename(self.filename))[0], node.tag), '->', action.__name__ if action is not None else '[no action]')
+            print(' %s.%s' % (Path(self.filename).stem, node.tag), '->', action.__name__ if action is not None else '[no action]')
 
         try:
             obj = action(self, node, parent, params)
@@ -559,7 +559,7 @@ class UiBuilder(object):
         if post_action is not None:
             try:
                 if DEBUG_COMPILE:
-                    print(' %s.%s (post)' % (os.path.splitext(os.path.basename(self.filename))[0], node.tag), '->', post_action.__name__)
+                    print(' %s.%s (post)' % (Path(self.filename).stem, node.tag), '->', post_action.__name__)
                 post_action(self, node, parent_obj, params)
             except Exception as ex:
                 if DEBUG_ERROR:
@@ -705,7 +705,7 @@ class UiBuilder(object):
                 else:
                     build_overrides[name] = val
 
-        builder = UiBuilder(self.filename + '[%s]' % node.tag)
+        builder = UiBuilder(str(self.filename) + '[%s]' % node.tag)
         builder.init_build(self.view_model)
         builder.overrides = build_overrides
         obj = builder.compile(use_node, parent, params)
@@ -1901,7 +1901,7 @@ class ViewModel(object):
 
         start = time.perf_counter()
 
-        if not os.path.exists(self.filename):
+        if not Path(self.filename).exists():
             raise IOError('XML file not found: %s' % self.filename)
 
         ui = UiBuilder(self.filename)
